@@ -96,6 +96,8 @@ header p  { font-size: .9rem; opacity: .75; margin-top: 4px; }
     font-size: .85rem;
     transition: all .2s;
     white-space: nowrap;
+    -webkit-user-select: none;
+    user-select: none;
 }
 .template-item:hover  { border-color: var(--yellow); background: var(--yellow-pale); }
 .template-item.active { background: var(--yellow); border-color: var(--yellow-dark); font-weight: 700; }
@@ -201,6 +203,7 @@ fieldset {
     border: 1.5px solid var(--border);
     border-radius: var(--radius);
     padding: 14px;
+    overflow: hidden;
 }
 legend {
     padding: 0 8px;
@@ -224,7 +227,7 @@ legend {
 
 .coord-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 10px;
     margin-bottom: 10px;
 }
@@ -416,7 +419,7 @@ legend {
 
 .weather-manual-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 10px;
 }
 
@@ -424,6 +427,7 @@ legend {
     display: flex;
     align-items: flex-end;
     gap: 6px;
+    max-width: 100%;
 }
 .time-hms-row .form-group {
     flex: 1;
@@ -563,6 +567,9 @@ legend {
     .settings-form .form-group:first-child { grid-column: 1 / -1; }
     .settings-form fieldset:last-of-type   { grid-column: 1 / -1; }
     .form-actions { grid-column: 1 / -1; flex-direction: row; }
+
+    .coord-row { grid-template-columns: 1fr 1fr; }
+    .weather-manual-grid { grid-template-columns: 1fr 1fr; }
 
     .action-bar .btn { flex: none; min-width: 140px; }
 }
