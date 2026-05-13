@@ -78,15 +78,13 @@ class WatermarkApp {
             });
         });
 
-        // Manual alamat inputs — live preview
-        ['manualAddr1','manualAddr2'].forEach(id => {
-            document.getElementById(id).addEventListener('input', () => {
-                if (this.manualAddr) {
-                    this.address = this.buildManualAddress();
-                    document.getElementById('addressInfo').textContent = this.address;
-                    this.updatePreview();
-                }
-            });
+        // Manual alamat input — live preview
+        document.getElementById('manualAddress').addEventListener('input', () => {
+            if (this.manualAddr) {
+                this.address = this.buildManualAddress();
+                document.getElementById('addressInfo').textContent = this.address;
+                this.updatePreview();
+            }
         });
 
         // Tabs
@@ -126,21 +124,15 @@ class WatermarkApp {
         btn.classList.toggle('btn-outline-active', this.manualAddr);
 
         if (!this.manualAddr) {
-            // Kembali ke alamat auto
             this.address = document.getElementById('addressInfo').dataset.auto || '';
         } else {
-            // Isi field dari alamat yang sudah ada
-            const parts = this.address.split(',');
-            document.getElementById('manualAddr1').value = parts.slice(0, 2).join(',').trim();
-            document.getElementById('manualAddr2').value = parts.slice(2).join(',').trim();
+            document.getElementById('manualAddress').value = this.address;
         }
         this.updatePreview();
     }
 
     buildManualAddress() {
-        const a1 = document.getElementById('manualAddr1').value.trim();
-        const a2 = document.getElementById('manualAddr2').value.trim();
-        return [a1, a2].filter(Boolean).join(', ');
+        return document.getElementById('manualAddress').value.trim();
     }
 
     // ── Toggle manual cuaca ──────────────────────────────────
@@ -262,8 +254,9 @@ class WatermarkApp {
         const M  = String(ts.getMinutes()).padStart(2, '0');
         const S  = String(ts.getSeconds()).padStart(2, '0');
 
-        const filename = `gps-map-${d}${mo}${y}-${H}${M}${S}.png`;
-        watermark.downloadImage(filename);
+        const filename = `gps-map-${d}${mo}${y}-${H}${M}${S}.jpg`;
+        const exifDatetime = `${y}:${mo}:${d} ${H}:${M}:${S}`;
+        watermark.downloadImage(filename, { ...this.getFormSettings(), exifDatetime });
     }
 
     // ── Reset ────────────────────────────────────────────────
@@ -394,8 +387,7 @@ class WatermarkApp {
         document.getElementById('manualAddrWrap').style.display = this.manualAddr ? 'block' : 'none';
         document.getElementById('toggleManualAddr').textContent = this.manualAddr ? '✖ Tutup Manual' : '✏️ Isi Manual';
         document.getElementById('toggleManualAddr').classList.toggle('btn-outline-active', this.manualAddr);
-        document.getElementById('manualAddr1').value = t.manualAddr1 || '';
-        document.getElementById('manualAddr2').value = t.manualAddr2 || '';
+        document.getElementById('manualAddress').value = t.manualAddress || t.address || '';
 
         // Manual waktu
         const isManualTime = t.timeFormat === 'manual';
@@ -444,8 +436,7 @@ class WatermarkApp {
             longitude:          document.getElementById('longitude').value,
             address:            this.address,
             manualAddr:         this.manualAddr,
-            manualAddr1:        document.getElementById('manualAddr1').value,
-            manualAddr2:        document.getElementById('manualAddr2').value,
+            manualAddress:      document.getElementById('manualAddress').value,
             enableTime:         document.getElementById('enableTime').checked,
             timeFormat:         document.getElementById('timeFormat').value,
             manualDate:         document.getElementById('manualDate').value,
@@ -500,7 +491,7 @@ class WatermarkApp {
         if (!name) { alert('Masukkan nama template'); return; }
         const def = {
             name, enableGPS: true, latitude: '', longitude: '', address: '',
-            manualAddr: false, manualAddr1: '', manualAddr2: '',
+            manualAddr: false, manualAddress: '',
             enableTime: true, timeFormat: 'full',
             manualDate: '', manualHour: '', manualMinute: '', manualSecond: '',
             enableWeather: true, weatherCity: '', weatherText: '', weatherObj: null,

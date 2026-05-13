@@ -346,12 +346,54 @@ class WatermarkManager {
         }
     }
 
-    // Download gambar
-    downloadImage(filename = 'watermarked-image.png') {
+    // Download gambar dengan EXIF
+    downloadImage(filename, settings = {}) {
+        let jpegData = this.canvas.toDataURL('image/jpeg', 0.92);
+        if (typeof piexif !== 'undefined' && settings) {
+            jpegData = this.insertExif(jpegData, settings);
+        }
+        const binary = atob(jpegData.split(',')[1]);
+        const data = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) data[i] = binary.charCodeAt(i);
+        const blob = new Blob([data], { type: 'image/jpeg' });
+        const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.href = this.canvas.toDataURL('image/png');
+        link.href = url;
         link.download = filename;
         link.click();
+        URL.revokeObjectURL(url);
+    }
+
+    insertExif(jpegData, settings) {
+        const zeroth = {};
+        const exif = {};
+        const gps = {};
+
+        const ts = settings.exifDatetime || new Date().toISOString().replace(/[T\-]/g, ':').replace(/:\d{2}\..*/, '');
+
+        zeroth[piexif.ImageIFD.DateTime] = ts;
+        zeroth[piexif.ImageIFD.Software] = 'GPS Watermark';
+        exif[piexif.ExifIFD.DateTimeOriginal] = ts;
+        exif[piexif.ExifIFD.DateTimeDigitized] = ts;
+
+        if (settings.enableGPS && settings.latitude && settings.longitude) {
+            const lat = parseFloat(settings.latitude);
+            const lng = parseFloat(settings.longitude);
+            gps[piexif.GPSIFD.GPSVersionID] = [2, 3, 0, 0];
+            gps[piexif.GPSIFD.GPSLatitudeRef] = lat < 0 ? 'S' : 'N';
+            gps[piexif.GPSIFD.GPSLatitude] = piexif.GPSHelper.degToDmsRational(Math.abs(lat));
+            gps[piexif.GPSIFD.GPSLongitudeRef] = lng < 0 ? 'W' : 'E';
+            gps[piexif.GPSIFD.GPSLongitude] = piexif.GPSHelper.degToDmsRational(Math.abs(lng));
+            gps[piexif.GPSIFD.GPSDateStamp] = ts;
+        }
+
+        const exifObj = {};
+        if (Object.keys(zeroth).length) exifObj['0th'] = zeroth;
+        if (Object.keys(exif).length) exifObj['Exif'] = exif;
+        if (Object.keys(gps).length) exifObj['GPS'] = gps;
+
+        const exifBytes = piexif.dump(exifObj);
+        return piexif.insert(exifBytes, jpegData);
     }
 
     // Reset canvas

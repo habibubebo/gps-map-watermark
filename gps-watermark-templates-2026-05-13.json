@@ -1,16 +1,15 @@
 {
   "version": 1,
-  "exportedAt": "2026-05-13T06:18:01.157Z",
+  "exportedAt": "2026-05-13T13:41:32.224Z",
   "templates": [
     {
       "name": "Srengat",
       "enableGPS": true,
-      "latitude": "-8.058641",
-      "longitude": "112.063679",
+      "latitude": "-8.0586",
+      "longitude": "112.0638",
       "address": "Jl. Melati No.21, Srengat II, Srengat, Kec. Srengat, Kabupaten Blitar, Jawa Timur 66152",
       "manualAddr": true,
-      "manualAddr1": "Jl. Melati No.21, Srengat II, Srengat, Kec. Srengat",
-      "manualAddr2": "Kabupaten Blitar, Jawa Timur 66152",
+      "manualAddress": "Jl. Melati No.21, Srengat II, Srengat, Kec. Srengat, Kabupaten Blitar, Jawa Timur 66152",
       "enableTime": true,
       "timeFormat": "manual",
       "manualDate": "2026-05-13",
@@ -19,26 +18,22 @@
       "manualSecond": "56",
       "enableWeather": true,
       "weatherCity": "Srengat",
-      "weatherText": "Gerimis Ringan  30.00°C  💨 10.80m/s  💧 68%",
+      "weatherText": "️ Sebagian Berawan  24.90°C  💨 9.50m/s  💧 90%",
       "weatherObj": {
-        "temperature": "30.00",
-        "weatherCode": 51,
-        "windSpeed": "10.80",
-        "humidity": 68,
-        "description": "Gerimis Ringan",
-        "city": "Srengat",
-        "country": "Indonesia",
-        "latitude": -8.0601,
-        "longitude": 112.062
+        "temperature": "24.90",
+        "windSpeed": "9.50",
+        "humidity": "90",
+        "weatherCode": 1,
+        "description": "️ Sebagian Berawan"
       },
       "manualWeather": false,
-      "manualTemp": "30.20",
-      "manualWind": "11.00",
-      "manualHumidity": "69",
-      "manualWeatherCode": "51",
+      "manualTemp": "24.90",
+      "manualWind": "9.50",
+      "manualHumidity": "90",
+      "manualWeatherCode": "1",
       "wmZoom": "130",
       "wmTextScale": "100",
-      "updatedAt": "2026-05-13T05:58:17.068Z"
+      "updatedAt": "2026-05-13T13:41:18.034Z"
     },
     {
       "name": "Kantor",

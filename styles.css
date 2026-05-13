@@ -203,7 +203,6 @@ fieldset {
     border: 1.5px solid var(--border);
     border-radius: var(--radius);
     padding: 14px;
-    overflow: hidden;
 }
 legend {
     padding: 0 8px;
@@ -226,16 +225,20 @@ legend {
 }
 
 .coord-row {
-    display: grid;
-    grid-template-columns: 1fr;
+    display: flex;
     gap: 10px;
     margin-bottom: 10px;
+}
+.coord-row .form-group {
+    flex: 1;
+    min-width: 0;
 }
 
 .form-group { display: flex; flex-direction: column; gap: 5px; }
 .form-group label { font-size: .82rem; font-weight: 600; color: var(--text-muted); }
 .form-group input,
 .form-group select {
+    width: 100%;
     padding: 9px 11px;
     border: 1.5px solid var(--border);
     border-radius: 7px;
@@ -568,7 +571,6 @@ legend {
     .settings-form fieldset:last-of-type   { grid-column: 1 / -1; }
     .form-actions { grid-column: 1 / -1; flex-direction: row; }
 
-    .coord-row { grid-template-columns: 1fr 1fr; }
     .weather-manual-grid { grid-template-columns: 1fr 1fr; }
 
     .action-bar .btn { flex: none; min-width: 140px; }
