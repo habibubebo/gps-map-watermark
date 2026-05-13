@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Generate OG Image</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #1a1a2e; color: white; }
+        canvas { display: block; max-width: 100%; border-radius: 8px; margin: 16px 0; }
+        .btn { background: #FFC107; color: #1a1a1a; border: none; padding: 12px 24px;
+               border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; }
+        .btn:hover { background: #FFA000; }
+        p { color: #aaa; margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+    <h2>🖼️ Generate og-image.png</h2>
+    <p>Klik tombol di bawah untuk mengunduh <code>og-image.png</code>, lalu letakkan di folder yang sama dengan <code>index.html</code>.</p>
+    <button class="btn" id="downloadBtn">⬇️ Download og-image.png</button>
+    <canvas id="c" width="1200" height="630"></canvas>
+
+    <script>
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.getElementById('c');
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, 1200, 630);
+        };
+        img.src = 'og-image.svg';
+
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            const canvas = document.getElementById('c');
+            const link = document.createElement('a');
+            link.download = 'og-image.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+    </script>
+</body>
+</html>

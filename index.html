@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>GPS Watermark — Tambahkan Lokasi, Waktu & Cuaca pada Foto</title>
+    <meta name="description" content="Aplikasi web gratis untuk menambahkan watermark GPS, waktu, dan cuaca pada foto. Lengkap dengan thumbnail peta, template tersimpan, dan export/import.">
+    <meta name="author" content="Habibubebo">
+    <meta name="theme-color" content="#FFC107">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="shortcut icon" href="favicon.svg">
+
+    <!-- Open Graph -->
+    <meta property="og:type"        content="website">
+    <meta property="og:title"       content="GPS Watermark — Lokasi, Waktu & Cuaca pada Foto">
+    <meta property="og:description" content="Tambahkan watermark GPS, waktu, dan cuaca pada foto Anda. Lengkap dengan thumbnail peta OpenStreetMap, template tersimpan, dan bisa export/import antar device.">
+    <meta property="og:image"       content="og-image.png">
+    <meta property="og:image:alt"   content="GPS Watermark app preview">
+    <meta property="og:image:width"  content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:locale"      content="id_ID">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card"        content="summary_large_image">
+    <meta name="twitter:title"       content="GPS Watermark — Lokasi, Waktu & Cuaca pada Foto">
+    <meta name="twitter:description" content="Tambahkan watermark GPS, waktu, dan cuaca pada foto Anda. Gratis, tanpa login, semua data tersimpan lokal.">
+    <meta name="twitter:image"       content="og-image.png">
+    <meta name="twitter:image:alt"   content="GPS Watermark app preview">
+
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📸 GPS Watermark</h1>
+            <p>Tambahkan lokasi, waktu & cuaca pada foto</p>
+        </header>
+
+        <div class="main-content">
+
+            <!-- ── Main ── -->
+            <main class="content">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="upload">📷 Foto</button>
+                    <button class="tab-btn" data-tab="settings">⚙️ Pengaturan</button>
+                </div>
+
+                <!-- Tab: Upload & Preview -->
+                <div class="tab-content active" id="upload-tab">
+                    <div class="upload-area" id="uploadArea">
+                        <input type="file" id="imageInput" accept="image/*" hidden>
+                        <div class="upload-placeholder">
+                            <div class="upload-icon">📁</div>
+                            <p>Ketuk atau drag foto ke sini</p>
+                            <small>JPG · PNG · WebP</small>
+                        </div>
+                    </div>
+
+                    <!-- Kontrol Watermark -->
+                    <div class="wm-controls" id="wmControls">
+                        <div class="wm-control-row">
+                            <label>
+                                <span class="ctrl-icon">🔍</span> Zoom
+                                <span class="ctrl-val" id="zoomVal">100%</span>
+                            </label>
+                            <input type="range" id="wmZoom" min="30" max="200" value="100" step="5">
+                        </div>
+                        <div class="wm-control-row">
+                            <label>
+                                <span class="ctrl-icon">🔤</span> Teks
+                                <span class="ctrl-val" id="textScaleVal">100%</span>
+                            </label>
+                            <input type="range" id="wmTextScale" min="40" max="250" value="100" step="5">
+                        </div>
+                    </div>
+
+                    <div class="preview-wrap">
+                        <canvas id="previewCanvas"></canvas>
+                        <div id="noImagePlaceholder" class="no-image">
+                            <p>Belum ada foto</p>
+                        </div>
+                    </div>
+
+                    <div class="action-bar">
+                        <button class="btn btn-success" id="downloadBtn" disabled>⬇️ Download</button>
+                        <button class="btn btn-secondary" id="resetBtn" disabled>🔄 Reset</button>
+                    </div>
+                </div>
+
+                <!-- Tab: Settings -->
+                <div class="tab-content" id="settings-tab">
+                    <div class="settings-form">
+
+                        <div class="form-group">
+                            <label>Nama Template</label>
+                            <input type="text" id="templateName" placeholder="Contoh: Liburan Bali">
+                        </div>
+
+                        <!-- GPS -->
+                        <fieldset>
+                            <legend>📍 Lokasi GPS</legend>
+                            <label class="toggle-row">
+                                <input type="checkbox" id="enableGPS" checked>
+                                <span>Tampilkan lokasi & peta</span>
+                            </label>
+
+                            <div class="coord-row">
+                                <div class="form-group">
+                                    <label>Latitude</label>
+                                    <input type="text" id="latitude" placeholder="-8.0586">
+                                </div>
+                                <div class="form-group">
+                                    <label>Longitude</label>
+                                    <input type="text" id="longitude" placeholder="112.0638">
+                                </div>
+                            </div>
+
+                            <div class="source-toggle">
+                                <button class="btn btn-outline" id="getLocationBtn">📍 Ambil Otomatis</button>
+                                <button class="btn btn-outline-muted" id="toggleManualAddr" type="button">✏️ Isi Manual</button>
+                            </div>
+
+                            <!-- Input alamat manual (tersembunyi by default) -->
+                            <div id="manualAddrWrap" class="manual-wrap" style="display:none;">
+                                <div class="form-group">
+                                    <label>Alamat Baris 1</label>
+                                    <input type="text" id="manualAddr1" placeholder="Jl. Cempaka, Srengat II, Srengat">
+                                </div>
+                                <div class="form-group">
+                                    <label>Alamat Baris 2</label>
+                                    <input type="text" id="manualAddr2" placeholder="Kec. Srengat, Kabupaten Blitar, Jawa Timur">
+                                </div>
+                            </div>
+
+                            <div id="addressInfo" class="info-badge"></div>
+                        </fieldset>
+
+                        <!-- Waktu -->
+                        <fieldset>
+                            <legend>🕐 Waktu</legend>
+                            <label class="toggle-row">
+                                <input type="checkbox" id="enableTime" checked>
+                                <span>Tampilkan waktu</span>
+                            </label>
+
+                            <div class="source-toggle">
+                                <select id="timeFormat" class="select-inline">
+                                    <option value="full">Otomatis — Lengkap</option>
+                                    <option value="date">Otomatis — Tanggal saja</option>
+                                    <option value="time">Otomatis — Waktu saja</option>
+                                    <option value="manual">✏️ Isi Manual</option>
+                                </select>
+                            </div>
+
+                            <!-- Input waktu manual -->
+                            <div id="manualTimeWrap" class="manual-wrap" style="display:none;">
+                                <div class="form-group">
+                                    <label>Tanggal</label>
+                                    <input type="date" id="manualDate">
+                                </div>
+                                <div class="time-hms-row">
+                                    <div class="form-group">
+                                        <label>Jam</label>
+                                        <input type="number" id="manualHour" min="0" max="23" placeholder="14">
+                                    </div>
+                                    <span class="time-sep">:</span>
+                                    <div class="form-group">
+                                        <label>Menit</label>
+                                        <input type="number" id="manualMinute" min="0" max="59" placeholder="30">
+                                    </div>
+                                    <span class="time-sep">:</span>
+                                    <div class="form-group">
+                                        <label>Detik</label>
+                                        <input type="number" id="manualSecond" min="0" max="59" placeholder="00">
+                                    </div>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <!-- Cuaca -->
+                        <fieldset>
+                            <legend>🌤️ Cuaca</legend>
+                            <label class="toggle-row">
+                                <input type="checkbox" id="enableWeather" checked>
+                                <span>Tampilkan cuaca</span>
+                            </label>
+
+                            <div class="source-toggle">
+                                <div class="form-group" style="flex:1;">
+                                    <label>Kota</label>
+                                    <input type="text" id="weatherCity" placeholder="Jakarta">
+                                </div>
+                                <button class="btn btn-outline" id="getWeatherBtn" style="align-self:flex-end;">🌤️ Ambil</button>
+                                <button class="btn btn-outline-muted" id="toggleManualWeather" type="button" style="align-self:flex-end;">✏️ Manual</button>
+                            </div>
+
+                            <!-- Input cuaca manual -->
+                            <div id="manualWeatherWrap" class="manual-wrap" style="display:none;">
+                                <div class="weather-manual-grid">
+                                    <div class="form-group">
+                                        <label>🌡️ Suhu (°C)</label>
+                                        <input type="number" id="manualTemp" placeholder="28.77" step="0.01">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>💨 Angin (m/s)</label>
+                                        <input type="number" id="manualWind" placeholder="1.63" step="0.01">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>💧 Kelembaban (%)</label>
+                                        <input type="number" id="manualHumidity" placeholder="87" min="0" max="100">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>☁️ Kondisi</label>
+                                        <select id="manualWeatherCode">
+                                            <option value="0">☀️ Cerah</option>
+                                            <option value="1">🌤️ Sebagian Berawan</option>
+                                            <option value="2">⛅ Berawan</option>
+                                            <option value="3">☁️ Mendung</option>
+                                            <option value="45">🌫️ Berkabut</option>
+                                            <option value="51">🌦️ Gerimis Ringan</option>
+                                            <option value="61">🌧️ Hujan Ringan</option>
+                                            <option value="63">🌧️ Hujan Sedang</option>
+                                            <option value="65">🌧️ Hujan Lebat</option>
+                                            <option value="80">🌧️ Hujan Lokal</option>
+                                            <option value="95">⛈️ Badai</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="weatherInfo" class="info-badge"></div>
+                        </fieldset>
+
+                        <div class="form-actions">
+                            <button class="btn btn-primary" id="saveTemplateBtn">💾 Simpan Template</button>
+                            <button class="btn btn-danger" id="deleteTemplateBtn" style="display:none;">🗑️ Hapus</button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- ── Sidebar Template ── -->
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <h3>📋 Template</h3>
+                    <button class="btn btn-primary btn-sm" id="newTemplateBtn">+ Baru</button>
+                </div>
+                <div class="template-list" id="templateList"></div>
+                <div class="sidebar-actions">
+                    <button class="btn btn-outline-muted btn-sm" id="exportBtn">⬆️ Export</button>
+                    <label class="btn btn-outline-muted btn-sm" id="importLabel">
+                        ⬇️ Import
+                        <input type="file" id="importInput" accept=".json" hidden>
+                    </label>
+                </div>
+            </aside>
+
+        </div><!-- /.main-content -->
+    </div><!-- /.container -->
+
+    <!-- Modal: Template Baru -->
+    <div class="modal" id="newTemplateModal">
+        <div class="modal-content">
+            <h2>Template Baru</h2>
+            <input type="text" id="newTemplateName" placeholder="Nama template...">
+            <div class="modal-actions">
+                <button class="btn btn-primary" id="confirmNewTemplate">Buat</button>
+                <button class="btn btn-secondary" id="cancelNewTemplate">Batal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Konfirmasi Import -->
+    <div class="modal" id="importModal">
+        <div class="modal-content">
+            <h2>⬇️ Import Template</h2>
+            <p class="modal-desc">
+                Ditemukan <strong id="importModalCount">0</strong> template dalam file.<br>
+                Pilih cara import:
+            </p>
+            <div class="import-options">
+                <button class="btn btn-primary" id="importMergeBtn">
+                    ➕ Gabung
+                    <small>Tambahkan ke template yang sudah ada</small>
+                </button>
+                <button class="btn btn-danger" id="importReplaceBtn">
+                    🔄 Ganti Semua
+                    <small>Hapus template lama, ganti dengan yang baru</small>
+                </button>
+            </div>
+            <button class="btn btn-secondary" id="importCancelBtn" style="margin-top:10px;width:100%;">Batal</button>
+        </div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="weather.js"></script>
+    <script src="watermark.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

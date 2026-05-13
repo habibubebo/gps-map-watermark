@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="32" fill="#1a1a2e"/>
+
+  <!-- Camera body -->
+  <rect x="10" y="20" width="44" height="30" rx="5" ry="5" fill="#FFC107"/>
+
+  <!-- Camera lens outer -->
+  <circle cx="32" cy="35" r="10" fill="#1a1a2e"/>
+  <!-- Camera lens inner -->
+  <circle cx="32" cy="35" r="7" fill="#2d2d4e"/>
+  <!-- Lens shine -->
+  <circle cx="29" cy="32" r="2" fill="rgba(255,255,255,0.3)"/>
+
+  <!-- Viewfinder bump -->
+  <rect x="26" y="14" width="12" height="8" rx="3" ry="3" fill="#FFC107"/>
+
+  <!-- Flash dot -->
+  <circle cx="16" cy="25" r="2.5" fill="#1a1a2e"/>
+
+  <!-- GPS pin overlay (bottom-right) -->
+  <circle cx="48" cy="50" r="10" fill="#E53935"/>
+  <circle cx="48" cy="48" r="5" fill="#1a1a2e"/>
+  <polygon points="48,60 44,52 52,52" fill="#E53935"/>
+  <circle cx="48" cy="48" r="2" fill="white"/>
+</svg>
