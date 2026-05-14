@@ -191,7 +191,7 @@ class WatermarkManager {
                 // Pin merah — koordinat selalu tepat di tengah thumbnail
                 const pinCX = mapX + mapSize / 2;
                 const pinCY = mapY + mapSize / 2;
-                this.drawPin(pinCX, pinCY, scale);
+                this.drawPin(pinCX, pinCY, scale, settings.pinStyle, settings.pinColor);
             } else {
                 // Fallback: kotak abu-abu dengan teks
                 this.ctx.fillStyle = '#333';
@@ -224,12 +224,9 @@ class WatermarkManager {
     }
 
     // Gambar pin lokasi — teardrop, ujung bawah = titik koordinat
-    drawPin(cx, cy, scale) {
+    drawPin(cx, cy, scale, pinStyle = 'teardrop', pinColor = '#E53935') {
         const r  = Math.round(9 * scale);   // radius lingkaran kepala pin
-        const tx = cx;                       // ujung bawah (titik koordinat)
-        const ty = cy + r * 1.8;            // ujung bawah teardrop
-        const topY = cy - r;                // puncak lingkaran
-
+        
         this.ctx.save();
 
         // Shadow
@@ -237,28 +234,59 @@ class WatermarkManager {
         this.ctx.shadowBlur    = Math.round(4 * scale);
         this.ctx.shadowOffsetY = Math.round(2 * scale);
 
-        // Body teardrop
-        this.ctx.beginPath();
-        this.ctx.arc(cx, cy, r, Math.PI * 0.15, Math.PI * 0.85, false); // busur bawah
-        this.ctx.lineTo(tx, ty);                                          // ujung lancip
-        this.ctx.closePath();
-        this.ctx.fillStyle = '#E53935';
-        this.ctx.fill();
+        if (pinStyle === 'teardrop') {
+            // Teardrop shape (default)
+            const tx = cx;                       // ujung bawah (titik koordinat)
+            const ty = cy + r * 1.8;            // ujung bawah teardrop
 
-        // Kepala lingkaran penuh
-        this.ctx.beginPath();
-        this.ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        this.ctx.fillStyle = '#E53935';
-        this.ctx.fill();
+            // Body teardrop
+            this.ctx.beginPath();
+            this.ctx.arc(cx, cy, r, Math.PI * 0.15, Math.PI * 0.85, false); // busur bawah
+            this.ctx.lineTo(tx, ty);                                          // ujung lancip
+            this.ctx.closePath();
+            this.ctx.fillStyle = pinColor;
+            this.ctx.fill();
+
+            // Kepala lingkaran penuh
+            this.ctx.beginPath();
+            this.ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            this.ctx.fillStyle = pinColor;
+            this.ctx.fill();
+        } else if (pinStyle === 'circle') {
+            // Circle shape
+            this.ctx.beginPath();
+            this.ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            this.ctx.fillStyle = pinColor;
+            this.ctx.fill();
+        } else if (pinStyle === 'square') {
+            // Square shape
+            const size = r * 1.6;
+            this.ctx.fillStyle = pinColor;
+            this.ctx.fillRect(cx - size / 2, cy - size / 2, size, size);
+        } else if (pinStyle === 'star') {
+            // Star shape
+            this.drawStar(cx, cy, 5, r, r * 0.5, pinColor);
+        }
 
         this.ctx.shadowColor = 'transparent';
 
         // Border putih
-        this.ctx.beginPath();
-        this.ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        this.ctx.strokeStyle = '#fff';
-        this.ctx.lineWidth   = Math.max(1.5, Math.round(2 * scale));
-        this.ctx.stroke();
+        if (pinStyle === 'circle' || pinStyle === 'teardrop') {
+            this.ctx.beginPath();
+            this.ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            this.ctx.strokeStyle = '#fff';
+            this.ctx.lineWidth   = Math.max(1.5, Math.round(2 * scale));
+            this.ctx.stroke();
+        } else if (pinStyle === 'square') {
+            const size = r * 1.6;
+            this.ctx.strokeStyle = '#fff';
+            this.ctx.lineWidth   = Math.max(1.5, Math.round(2 * scale));
+            this.ctx.strokeRect(cx - size / 2, cy - size / 2, size, size);
+        } else if (pinStyle === 'star') {
+            this.ctx.strokeStyle = '#fff';
+            this.ctx.lineWidth   = Math.max(1.5, Math.round(2 * scale));
+            this.ctx.stroke();
+        }
 
         // Titik putih di tengah
         this.ctx.beginPath();
@@ -267,6 +295,27 @@ class WatermarkManager {
         this.ctx.fill();
 
         this.ctx.restore();
+    }
+
+    // Helper: draw star shape
+    drawStar(cx, cy, points, outerRadius, innerRadius, fillColor = '#E53935') {
+        let angle = Math.PI / 2;
+        const angleSlice = Math.PI / points;
+
+        this.ctx.beginPath();
+        this.ctx.moveTo(cx, cy - outerRadius);
+
+        for (let i = 0; i < points * 2; i++) {
+            const radius = i % 2 === 0 ? outerRadius : innerRadius;
+            const x = cx + Math.cos(angle) * radius;
+            const y = cy - Math.sin(angle) * radius;
+            this.ctx.lineTo(x, y);
+            angle += angleSlice;
+        }
+
+        this.ctx.closePath();
+        this.ctx.fillStyle = fillColor;
+        this.ctx.fill();
     }
 
     // Rounded rect path helper

@@ -7,6 +7,9 @@ class WatermarkApp {
         this.address         = '';    // alamat (auto atau manual)
         this.manualAddr      = false; // mode alamat manual aktif
         this.manualWeather   = false; // mode cuaca manual aktif
+        this.map             = null;  // Leaflet map instance
+        this.mapMarker       = null;  // Leaflet marker
+        this.addressUpdateTimeout = null; // debounce timeout untuk update alamat
         this.init();
     }
 
@@ -49,9 +52,25 @@ class WatermarkApp {
             if (e.target.files.length > 0) this.importTemplates(e.target.files[0]);
         });
 
+        // Load Kantor template suggestion
+        document.getElementById('loadKantorBtn').addEventListener('click', () => this.loadKantorTemplate());
+
         // GPS
         document.getElementById('getLocationBtn').addEventListener('click', () => this.getLocation());
         document.getElementById('toggleManualAddr').addEventListener('click', () => this.toggleManualAddr());
+        document.getElementById('searchAddressBtn').addEventListener('click', () => this.searchAddress());
+        document.getElementById('addressSearch').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.searchAddress();
+        });
+        document.getElementById('pinStyle').addEventListener('change', () => this.updatePreview());
+        document.getElementById('pinColor').addEventListener('input', () => this.updatePreview());
+        document.querySelectorAll('.color-preset').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const color = e.target.dataset.color;
+                document.getElementById('pinColor').value = color;
+                this.updatePreview();
+            });
+        });
 
         // Waktu
         document.getElementById('timeFormat').addEventListener('change', (e) => {
@@ -97,7 +116,10 @@ class WatermarkApp {
             document.getElementById(id).addEventListener('change', () => this.updatePreview());
         });
         ['latitude','longitude'].forEach(id => {
-            document.getElementById(id).addEventListener('input', () => this.updatePreview());
+            document.getElementById(id).addEventListener('input', () => {
+                this.updatePreview();
+                this.updateAddressFromCoordinates();
+            });
         });
 
         // Zoom & text scale sliders
@@ -214,6 +236,8 @@ class WatermarkApp {
             latitude:       document.getElementById('latitude').value,
             longitude:      document.getElementById('longitude').value,
             address:        addr,
+            pinStyle:       document.getElementById('pinStyle').value,
+            pinColor:       document.getElementById('pinColor').value,
             enableTime:     document.getElementById('enableTime').checked,
             timeFormat,
             manualDatetime,
@@ -351,7 +375,14 @@ class WatermarkApp {
     async loadTemplates() {
         const templates = await db.getAllTemplates();
         const list = document.getElementById('templateList');
+        const empty = document.getElementById('templateEmpty');
         list.innerHTML = '';
+        if (templates.length === 0) {
+            empty.style.display = 'block';
+            document.getElementById('deleteTemplateBtn').style.display = 'none';
+            return;
+        }
+        empty.style.display = 'none';
         templates.forEach(t => {
             const item = document.createElement('div');
             item.className = 'template-item';
@@ -371,6 +402,8 @@ class WatermarkApp {
         document.getElementById('enableGPS').checked       = t.enableGPS ?? true;
         document.getElementById('latitude').value          = t.latitude  || '';
         document.getElementById('longitude').value         = t.longitude || '';
+        document.getElementById('pinStyle').value          = t.pinStyle  || 'teardrop';
+        document.getElementById('pinColor').value          = t.pinColor  || '#E53935';
         document.getElementById('enableTime').checked      = t.enableTime ?? true;
         document.getElementById('timeFormat').value        = t.timeFormat || 'full';
         document.getElementById('enableWeather').checked   = t.enableWeather ?? true;
@@ -422,6 +455,12 @@ class WatermarkApp {
             if (found) found.classList.add('active');
         }
         document.getElementById('deleteTemplateBtn').style.display = 'inline-block';
+        
+        // Update map marker jika map sudah diinisialisasi
+        if (this.map && t.latitude && t.longitude) {
+            this.updateMapMarker(t.latitude, t.longitude);
+        }
+        
         this.updatePreview();
     }
 
@@ -435,6 +474,8 @@ class WatermarkApp {
             latitude:           document.getElementById('latitude').value,
             longitude:          document.getElementById('longitude').value,
             address:            this.address,
+            pinStyle:           document.getElementById('pinStyle').value,
+            pinColor:           document.getElementById('pinColor').value,
             manualAddr:         this.manualAddr,
             manualAddress:      document.getElementById('manualAddress').value,
             enableTime:         document.getElementById('enableTime').checked,
@@ -490,7 +531,7 @@ class WatermarkApp {
         const name = document.getElementById('newTemplateName').value.trim();
         if (!name) { alert('Masukkan nama template'); return; }
         const def = {
-            name, enableGPS: true, latitude: '', longitude: '', address: '',
+            name, enableGPS: true, latitude: '', longitude: '', address: '', pinStyle: 'teardrop', pinColor: '#E53935',
             manualAddr: false, manualAddress: '',
             enableTime: true, timeFormat: 'full',
             manualDate: '', manualHour: '', manualMinute: '', manualSecond: '',
@@ -568,6 +609,53 @@ class WatermarkApp {
         }
     }
 
+    // ── Load template Kantor (hardcode — hindari CORS) ─────
+    async loadKantorTemplate() {
+        const kantor = {
+            name: "Kantor",
+            enableGPS: true,
+            latitude: "-8.0617",
+            longitude: "111.9072",
+            address: "Jalan Panglima Sudirman, Kedungwaru, Tulungagung, Jawa Timur",
+            manualAddr: false,
+            manualAddress: "",
+            enableTime: true,
+            timeFormat: "full",
+            manualDate: "",
+            manualHour: "",
+            manualMinute: "",
+            manualSecond: "",
+            enableWeather: true,
+            weatherCity: "Tulungagung",
+            weatherText: "Gerimis Ringan  29.50°C  💨 10.70m/s  💧 75%",
+            weatherObj: {
+                temperature: "29.50",
+                windSpeed: "10.70",
+                humidity: 75,
+                weatherCode: 51,
+                description: "Gerimis Ringan",
+                city: "Tulungagung",
+                country: "Indonesia",
+                latitude: -8.0657,
+                longitude: 111.9025
+            },
+            manualWeather: false,
+            manualTemp: "",
+            manualWind: "",
+            manualHumidity: "",
+            manualWeatherCode: 0,
+            wmZoom: 130,
+            wmTextScale: 100,
+        };
+        try {
+            const newId = await db.saveTemplate(kantor);
+            await this.loadTemplates();
+            await this.selectTemplate(newId, null);
+        } catch (err) {
+            alert('Gagal memuat template Kantor: ' + err.message);
+        }
+    }
+
     // Dialog pilihan import — returns 'merge' | 'replace' | 'cancel'
     showImportDialog(count) {
         return new Promise((resolve) => {
@@ -587,12 +675,204 @@ class WatermarkApp {
         });
     }
 
+    // ── Address Search ──────────────────────────────────────
+    async searchAddress() {
+        const query = document.getElementById('addressSearch').value.trim();
+        if (!query) { alert('Masukkan nama tempat atau alamat'); return; }
+        
+        const btn = document.getElementById('searchAddressBtn');
+        btn.disabled = true;
+        btn.textContent = '⏳ Mencari...';
+        
+        try {
+            const results = await this.geocodeAddress(query);
+            if (results.length === 0) {
+                alert('Lokasi tidak ditemukan');
+                btn.disabled = false;
+                btn.textContent = '🔍 Cari';
+                return;
+            }
+            
+            // Ambil hasil pertama
+            const result = results[0];
+            const lat = parseFloat(result.lat).toFixed(4);
+            const lng = parseFloat(result.lon).toFixed(4);
+            
+            document.getElementById('latitude').value = lat;
+            document.getElementById('longitude').value = lng;
+            
+            // Update map
+            this.updateMapMarker(lat, lng);
+            
+            // Ambil alamat lengkap
+            try {
+                const addr = await weather.reverseGeocode(lat, lng);
+                this.address = addr || result.display_name;
+            } catch {
+                this.address = result.display_name;
+            }
+            document.getElementById('addressInfo').textContent = this.address;
+            document.getElementById('addressInfo').dataset.auto = this.address;
+            
+            // Ambil cuaca untuk lokasi ini
+            try {
+                this.weatherObj = await weather.getWeatherByCoordinates(lat, lng);
+                this.showWeatherBadge(this.weatherObj);
+            } catch { /* opsional */ }
+            
+            this.updatePreview();
+        } catch (err) {
+            alert('Gagal mencari lokasi: ' + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '🔍 Cari';
+        }
+    }
+
+    // Geocode address using Nominatim API
+    async geocodeAddress(query) {
+        const res = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&accept-language=id`,
+            { headers: { 'Accept-Language': 'id' } }
+        );
+        const data = await res.json();
+        return data;
+    }
+
+    // ── Auto-update alamat dari koordinat ────────────────────
+    async updateAddressFromCoordinates() {
+        const lat = document.getElementById('latitude').value.trim();
+        const lng = document.getElementById('longitude').value.trim();
+        
+        // Validasi koordinat
+        if (!lat || !lng) return;
+        
+        const latNum = parseFloat(lat);
+        const lngNum = parseFloat(lng);
+        
+        if (isNaN(latNum) || isNaN(lngNum)) return;
+        
+        // Jangan update jika sedang dalam mode manual alamat
+        if (this.manualAddr) return;
+        
+        try {
+            // Debounce: tunggu 500ms sebelum melakukan reverse geocode & fetch cuaca
+            if (this.addressUpdateTimeout) clearTimeout(this.addressUpdateTimeout);
+            
+            this.addressUpdateTimeout = setTimeout(async () => {
+                // Update alamat
+                try {
+                    const addr = await weather.reverseGeocode(latNum, lngNum);
+                    if (addr) {
+                        this.address = addr;
+                        document.getElementById('addressInfo').textContent = addr;
+                        document.getElementById('addressInfo').dataset.auto = addr;
+                    }
+                } catch (err) {
+                    console.warn('Gagal update alamat:', err);
+                }
+                
+                // Update cuaca (hanya jika tidak dalam mode manual cuaca)
+                if (!this.manualWeather) {
+                    try {
+                        this.weatherObj = await weather.getWeatherByCoordinates(latNum, lngNum);
+                        
+                        // Extract kota dari alamat untuk weatherCity field
+                        if (this.address) {
+                            // Ambil bagian terakhir dari alamat (biasanya kota/kabupaten)
+                            const parts = this.address.split(',');
+                            const city = parts[parts.length - 2]?.trim() || parts[parts.length - 1]?.trim() || '';
+                            document.getElementById('weatherCity').value = city;
+                        }
+                        
+                        this.showWeatherBadge(this.weatherObj);
+                        this.updatePreview();
+                    } catch (err) {
+                        console.warn('Gagal update cuaca:', err);
+                    }
+                }
+            }, 500);
+        } catch (err) {
+            console.warn('Gagal update alamat/cuaca:', err);
+        }
+    }
+
+    // ── Map Management ───────────────────────────────────────
+    initMap() {
+        const container = document.getElementById('mapContainer');
+        if (!container || this.map) return;
+        
+        // Default center (Indonesia)
+        const defaultLat = -8.0586;
+        const defaultLng = 112.0638;
+        
+        this.map = L.map('mapContainer').setView([defaultLat, defaultLng], 13);
+        
+        // OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '',
+            maxZoom: 19,
+        }).addTo(this.map);
+        
+        // Custom marker icon (hanya emoji)
+        const customIcon = L.divIcon({
+            html: `<div style="font-size: 32px; line-height: 1; cursor: grab;">📍</div>`,
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32],
+            className: 'custom-marker'
+        });
+        
+        // Add marker
+        this.mapMarker = L.marker([defaultLat, defaultLng], {
+            draggable: true,
+            icon: customIcon,
+            title: 'Klik atau drag untuk memilih lokasi'
+        }).addTo(this.map);
+        
+        // Handle marker drag
+        this.mapMarker.on('dragend', () => {
+            const pos = this.mapMarker.getLatLng();
+            this.setCoordinates(pos.lat, pos.lng);
+        });
+        
+        // Handle map click
+        this.map.on('click', (e) => {
+            this.mapMarker.setLatLng(e.latlng);
+            this.setCoordinates(e.latlng.lat, e.latlng.lng);
+        });
+    }
+
+    updateMapMarker(lat, lng) {
+        if (!this.map) this.initMap();
+        const latNum = parseFloat(lat);
+        const lngNum = parseFloat(lng);
+        if (!isNaN(latNum) && !isNaN(lngNum)) {
+            this.mapMarker.setLatLng([latNum, lngNum]);
+            this.map.setView([latNum, lngNum], 13);
+        }
+    }
+
+    setCoordinates(lat, lng) {
+        const latStr = parseFloat(lat).toFixed(4);
+        const lngStr = parseFloat(lng).toFixed(4);
+        document.getElementById('latitude').value = latStr;
+        document.getElementById('longitude').value = lngStr;
+        this.updateAddressFromCoordinates();
+        this.updatePreview();
+    }
+
     // ── Tab ──────────────────────────────────────────────────
     switchTab(tabName, btn) {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         if (btn) btn.classList.add('active');
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         document.getElementById(`${tabName}-tab`).classList.add('active');
+        
+        // Initialize map when settings tab is opened
+        if (tabName === 'settings') {
+            setTimeout(() => this.initMap(), 100);
+        }
     }
 }
 
