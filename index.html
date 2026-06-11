@@ -13,6 +13,10 @@
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="shortcut icon" href="favicon.svg">
 
+    <!-- Leaflet Map Library -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
+
     <!-- Open Graph -->
     <meta property="og:type"        content="website">
     <meta property="og:title"       content="GPS Watermark — Lokasi, Waktu & Cuaca pada Foto">
@@ -29,13 +33,14 @@
     <meta name="twitter:description" content="Tambahkan watermark GPS, waktu, dan cuaca pada foto Anda. Gratis, tanpa login, semua data tersimpan lokal.">
     <meta name="twitter:image"       content="og-image.png">
     <meta name="twitter:image:alt"   content="GPS Watermark app preview">
-
-    <link rel="stylesheet" href="styles.css">
+    <script src="/logs/track.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="styles.min.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>📸 GPS Watermark</h1>
+            <h1><i class="fas fa-camera"></i> GPS Watermark</h1>
             <p>Tambahkan lokasi, waktu & cuaca pada foto</p>
         </header>
 
@@ -44,8 +49,8 @@
             <!-- ── Main ── -->
             <main class="content">
                 <div class="tabs">
-                    <button class="tab-btn active" data-tab="upload">📷 Foto</button>
-                    <button class="tab-btn" data-tab="settings">⚙️ Pengaturan</button>
+                    <button class="tab-btn active" data-tab="upload"><i class="fas fa-image"></i> Foto</button>
+                    <button class="tab-btn" data-tab="settings"><i class="fas fa-gear"></i> Pengaturan</button>
                 </div>
 
                 <!-- Tab: Upload & Preview -->
@@ -53,7 +58,7 @@
                     <div class="upload-area" id="uploadArea">
                         <input type="file" id="imageInput" accept="image/*" hidden>
                         <div class="upload-placeholder">
-                            <div class="upload-icon">📁</div>
+                            <div class="upload-icon"><i class="fas fa-folder-open"></i></div>
                             <p>Ketuk atau drag foto ke sini</p>
                             <small>JPG · PNG · WebP</small>
                         </div>
@@ -63,14 +68,14 @@
                     <div class="wm-controls" id="wmControls">
                         <div class="wm-control-row">
                             <label>
-                                <span class="ctrl-icon">🔍</span> Zoom
+                                <span class="ctrl-icon"><i class="fas fa-search"></i></span> Zoom
                                 <span class="ctrl-val" id="zoomVal">100%</span>
                             </label>
                             <input type="range" id="wmZoom" min="30" max="200" value="100" step="5">
                         </div>
                         <div class="wm-control-row">
                             <label>
-                                <span class="ctrl-icon">🔤</span> Teks
+                                <span class="ctrl-icon"><i class="fas fa-font"></i></span> Teks
                                 <span class="ctrl-val" id="textScaleVal">100%</span>
                             </label>
                             <input type="range" id="wmTextScale" min="40" max="250" value="100" step="5">
@@ -85,8 +90,8 @@
                     </div>
 
                     <div class="action-bar">
-                        <button class="btn btn-success" id="downloadBtn" disabled>⬇️ Download</button>
-                        <button class="btn btn-secondary" id="resetBtn" disabled>🔄 Reset</button>
+                        <button class="btn btn-success" id="downloadBtn" disabled><i class="fas fa-download"></i> Download</button>
+                        <button class="btn btn-secondary" id="resetBtn" disabled><i class="fas fa-rotate"></i> Reset</button>
                     </div>
                 </div>
 
@@ -101,12 +106,52 @@
 
                         <!-- GPS -->
                         <fieldset>
-                            <legend>📍 Lokasi GPS</legend>
+                            <legend><i class="fas fa-location-dot"></i> Lokasi GPS</legend>
                             <label class="toggle-row">
                                 <input type="checkbox" id="enableGPS" checked>
                                 <span>Tampilkan lokasi & peta</span>
                             </label>
 
+                            <!-- Pin Icon Style -->
+                            <div class="form-group">
+                                <label>Gaya Pin</label>
+                                <select id="pinStyle" class="select-inline">
+                                    <option value="teardrop">📍 Teardrop (Default)</option>
+                                    <option value="circle">🔴 Lingkaran</option>
+                                    <option value="square">🟩 Kotak</option>
+                                    <option value="star">⭐ Bintang</option>
+                                </select>
+                            </div>
+
+                            <!-- Pin Color -->
+                            <div class="form-group">
+                                <label>Warna Pin</label>
+                                <div class="color-picker-row">
+                                    <input type="color" id="pinColor" value="#E53935">
+                                    <div class="color-presets">
+                                        <button type="button" class="color-preset" data-color="#E53935" style="background-color: #E53935;" title="Merah"></button>
+                                        <button type="button" class="color-preset" data-color="#1976D2" style="background-color: #1976D2;" title="Biru"></button>
+                                        <button type="button" class="color-preset" data-color="#388E3C" style="background-color: #388E3C;" title="Hijau"></button>
+                                        <button type="button" class="color-preset" data-color="#F57C00" style="background-color: #F57C00;" title="Oranye"></button>
+                                        <button type="button" class="color-preset" data-color="#7B1FA2" style="background-color: #7B1FA2;" title="Ungu"></button>
+                                        <button type="button" class="color-preset" data-color="#000000" style="background-color: #000000;" title="Hitam"></button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Search by Address -->
+                            <div class="search-row">
+                                <div class="form-group" style="flex:1;">
+                                    <label>Cari Lokasi</label>
+                                    <input type="text" id="addressSearch" placeholder="Ketik nama tempat atau alamat...">
+                                </div>
+                                <button class="btn btn-outline" id="searchAddressBtn" style="align-self:flex-end;"><i class="fas fa-search"></i> Cari</button>
+                            </div>
+
+                            <!-- Map Preview -->
+                            <div id="mapContainer" class="map-container"></div>
+
+                            <!-- Koordinat Manual -->
                             <div class="coord-row">
                                 <div class="form-group">
                                     <label>Latitude</label>
@@ -119,8 +164,8 @@
                             </div>
 
                             <div class="source-toggle">
-                                <button class="btn btn-outline" id="getLocationBtn">📍 Ambil Otomatis</button>
-                                <button class="btn btn-outline-muted" id="toggleManualAddr" type="button">✏️ Isi Manual</button>
+                                <button class="btn btn-outline" id="getLocationBtn"><i class="fas fa-location-dot"></i> Ambil Otomatis</button>
+                                <button class="btn btn-outline-muted" id="toggleManualAddr" type="button"><i class="fas fa-pen"></i> Isi Manual</button>
                             </div>
 
                             <!-- Input alamat manual (tersembunyi by default) -->
@@ -136,7 +181,7 @@
 
                         <!-- Waktu -->
                         <fieldset>
-                            <legend>🕐 Waktu</legend>
+                            <legend><i class="fas fa-clock"></i> Waktu</legend>
                             <label class="toggle-row">
                                 <input type="checkbox" id="enableTime" checked>
                                 <span>Tampilkan waktu</span>
@@ -178,7 +223,7 @@
 
                         <!-- Cuaca -->
                         <fieldset>
-                            <legend>🌤️ Cuaca</legend>
+                            <legend><i class="fas fa-cloud-sun"></i> Cuaca</legend>
                             <label class="toggle-row">
                                 <input type="checkbox" id="enableWeather" checked>
                                 <span>Tampilkan cuaca</span>
@@ -189,27 +234,27 @@
                                     <label>Kota</label>
                                     <input type="text" id="weatherCity" placeholder="Jakarta">
                                 </div>
-                                <button class="btn btn-outline" id="getWeatherBtn" style="align-self:flex-end;">🌤️ Ambil</button>
-                                <button class="btn btn-outline-muted" id="toggleManualWeather" type="button" style="align-self:flex-end;">✏️ Manual</button>
+                                <button class="btn btn-outline" id="getWeatherBtn" style="align-self:flex-end;"><i class="fas fa-cloud-sun"></i> Ambil</button>
+                                <button class="btn btn-outline-muted" id="toggleManualWeather" type="button" style="align-self:flex-end;"><i class="fas fa-pen"></i> Manual</button>
                             </div>
 
                             <!-- Input cuaca manual -->
                             <div id="manualWeatherWrap" class="manual-wrap" style="display:none;">
                                 <div class="weather-manual-grid">
                                     <div class="form-group">
-                                        <label>🌡️ Suhu (°C)</label>
+                                        <label><i class="fas fa-temperature-half"></i> Suhu (°C)</label>
                                         <input type="number" id="manualTemp" placeholder="28.77" step="0.01">
                                     </div>
                                     <div class="form-group">
-                                        <label>💨 Angin (m/s)</label>
+                                        <label><i class="fas fa-wind"></i> Angin (m/s)</label>
                                         <input type="number" id="manualWind" placeholder="1.63" step="0.01">
                                     </div>
                                     <div class="form-group">
-                                        <label>💧 Kelembaban (%)</label>
+                                        <label><i class="fas fa-droplet"></i> Kelembaban (%)</label>
                                         <input type="number" id="manualHumidity" placeholder="87" min="0" max="100">
                                     </div>
                                     <div class="form-group">
-                                        <label>☁️ Kondisi</label>
+                                        <label><i class="fas fa-cloud"></i> Kondisi</label>
                                         <select id="manualWeatherCode">
                                             <option value="0">☀️ Cerah</option>
                                             <option value="1">🌤️ Sebagian Berawan</option>
@@ -231,8 +276,8 @@
                         </fieldset>
 
                         <div class="form-actions">
-                            <button class="btn btn-primary" id="saveTemplateBtn">💾 Simpan Template</button>
-                            <button class="btn btn-danger" id="deleteTemplateBtn" style="display:none;">🗑️ Hapus</button>
+                            <button class="btn btn-primary" id="saveTemplateBtn"><i class="fas fa-floppy-disk"></i> Simpan Template</button>
+                            <button class="btn btn-danger" id="deleteTemplateBtn" style="display:none;"><i class="fas fa-trash-can"></i> Hapus</button>
                         </div>
                     </div>
                 </div>
@@ -241,17 +286,22 @@
             <!-- ── Sidebar Template ── -->
             <aside class="sidebar">
                 <div class="sidebar-header">
-                    <h3>📋 Template</h3>
+                    <h3><i class="fas fa-clipboard-list"></i> Template</h3>
                     <button class="btn btn-primary btn-sm" id="newTemplateBtn">+ Baru</button>
                 </div>
                 <div class="template-list" id="templateList"></div>
+                <div class="template-empty" id="templateEmpty">
+                    <p>Belum ada template</p>
+                    <button class="btn btn-outline btn-sm" id="loadKantorBtn"><i class="fas fa-building"></i> Muat Template Kantor</button>
+                </div>
                 <div class="sidebar-actions">
-                    <button class="btn btn-outline-muted btn-sm" id="exportBtn">⬆️ Export</button>
+                    <button class="btn btn-outline-muted btn-sm" id="exportBtn"><i class="fas fa-upload"></i> Export</button>
                     <label class="btn btn-outline-muted btn-sm" id="importLabel">
-                        ⬇️ Import
+                        <i class="fas fa-download"></i> Import
                         <input type="file" id="importInput" accept=".json" hidden>
                     </label>
                 </div>
+
             </aside>
 
         </div><!-- /.main-content -->
@@ -272,18 +322,18 @@
     <!-- Modal: Konfirmasi Import -->
     <div class="modal" id="importModal">
         <div class="modal-content">
-            <h2>⬇️ Import Template</h2>
+            <h2><i class="fas fa-download"></i> Import Template</h2>
             <p class="modal-desc">
                 Ditemukan <strong id="importModalCount">0</strong> template dalam file.<br>
                 Pilih cara import:
             </p>
             <div class="import-options">
                 <button class="btn btn-primary" id="importMergeBtn">
-                    ➕ Gabung
+                    <i class="fas fa-plus"></i> Gabung
                     <small>Tambahkan ke template yang sudah ada</small>
                 </button>
                 <button class="btn btn-danger" id="importReplaceBtn">
-                    🔄 Ganti Semua
+                    <i class="fas fa-rotate"></i> Ganti Semua
                     <small>Hapus template lama, ganti dengan yang baru</small>
                 </button>
             </div>
@@ -291,6 +341,9 @@
         </div>
     </div>
 
+    <!-- Open Location Code (Plus Code) Library -->
+    <script src="openlocationcode.js"></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.min.js"></script>
     <script src="db.js"></script>
     <script src="weather.js"></script>

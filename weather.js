@@ -4,27 +4,76 @@ class WeatherManager {
         this.geocodeUrl  = 'https://geocoding-api.open-meteo.com/v1/search';
         this.weatherUrl  = 'https://api.open-meteo.com/v1/forecast';
         this.reverseUrl  = 'https://nominatim.openstreetmap.org/reverse';
+        
+        // Load Open Location Code library
+        this.loadOpenLocationCode();
     }
 
-    // Reverse geocode: koordinat → alamat lengkap
+    // Load Open Location Code library dari CDN
+    loadOpenLocationCode() {
+        if (typeof olc !== 'undefined') {
+            this.olc = olc;
+        } else {
+            // Akan di-load via script tag di HTML
+            console.log('Waiting for Open Location Code library...');
+        }
+    }
+
+    // Hitung Plus Code dari koordinat
+    calculatePlusCode(lat, lng) {
+        try {
+            if (typeof olc !== 'undefined') {
+                return olc.encode(lat, lng, 10); // 10 digit precision
+            }
+            return null;
+        } catch (e) {
+            console.warn('Gagal menghitung Plus Code:', e);
+            return null;
+        }
+    }
+
+    // Reverse geocode: koordinat → alamat lengkap dengan Plus Code
     async reverseGeocode(lat, lng) {
         try {
             const res = await fetch(
-                `${this.reverseUrl}?lat=${lat}&lon=${lng}&format=json&accept-language=id`,
+                `${this.reverseUrl}?lat=${lat}&lon=${lng}&format=json&accept-language=id&zoom=18`,
                 { headers: { 'Accept-Language': 'id' } }
             );
             const data = await res.json();
             if (data && data.display_name) {
-                // Ambil plus code style: "W3R7+JG9, Jl. Cempaka, ..."
                 const addr = data.address || {};
+                
+                // Kumpulkan informasi detail
+                const road = addr.road || addr.pedestrian || addr.footway || '';
+                const suburb = addr.suburb || '';
+                const village = addr.village || addr.town || addr.city_district || '';
+                const county = addr.county || addr.city || '';
+                const state = addr.state || '';
+                
+                // Hitung Plus Code
+                const plusCode = this.calculatePlusCode(lat, lng);
+                
+                // Format: Plus Code (jika ada), Jalan, Suburb, Wilayah, Kota, Propinsi
                 const parts = [];
-                if (addr.road)         parts.push(addr.road);
-                if (addr.suburb)       parts.push(addr.suburb);
-                if (addr.village || addr.town || addr.city_district)
-                    parts.push(addr.village || addr.town || addr.city_district);
-                if (addr.county || addr.city) parts.push(addr.county || addr.city);
-                if (addr.state)        parts.push(addr.state);
-                return parts.length > 0 ? parts.join(', ') : data.display_name;
+                if (plusCode) parts.push(plusCode);
+                if (road) parts.push(road);
+                if (suburb && suburb !== village && suburb !== county) parts.push(suburb);
+                if (village && village !== county && village !== state) parts.push(village);
+                if (county && county !== state) parts.push(county);
+                if (state) parts.push(state);
+                
+                const result = {
+                    fullAddress: parts.length > 0 ? parts.join(', ') : data.display_name,
+                    plusCode: plusCode,
+                    road: road,
+                    suburb: suburb,
+                    village: village,
+                    county: county,
+                    state: state,
+                    displayName: data.display_name
+                };
+                
+                return result;
             }
             return null;
         } catch (e) {
