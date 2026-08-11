@@ -35,10 +35,14 @@ class WeatherManager {
     // Reverse geocode: koordinat → alamat lengkap dengan Plus Code
     async reverseGeocode(lat, lng) {
         try {
-            const res = await fetch(
-                `${this.reverseUrl}?lat=${lat}&lon=${lng}&format=json&accept-language=id&zoom=18`,
-                { headers: { 'Accept-Language': 'id' } }
-            );
+            const url = `${this.reverseUrl}?lat=${lat}&lon=${lng}&format=json&accept-language=id&zoom=18`;
+            const res = await offlineHandler.fetchWithRetry(url, {
+                headers: { 'Accept-Language': 'id' },
+                timeout: 6000
+            });
+            
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            
             const data = await res.json();
             if (data && data.display_name) {
                 const addr = data.address || {};
@@ -77,44 +81,87 @@ class WeatherManager {
             }
             return null;
         } catch (e) {
-            console.warn('Reverse geocode gagal:', e);
+            console.warn('Reverse geocode offline:', e.message);
+            // Fallback: return coordinates with Plus Code (silent)
+            const plusCode = this.calculatePlusCode(lat, lng);
+            if (plusCode) {
+                return {
+                    fullAddress: plusCode + ', ' + lat.toFixed(4) + ', ' + lng.toFixed(4),
+                    plusCode: plusCode,
+                    offline: true
+                };
+            }
             return null;
         }
     }
 
     // Ambil koordinat dari nama kota
     async getCoordinates(cityName) {
-        const res  = await fetch(`${this.geocodeUrl}?name=${encodeURIComponent(cityName)}&count=1&language=id&format=json`);
-        const data = await res.json();
-        if (data.results && data.results.length > 0) {
-            const r = data.results[0];
-            return { latitude: r.latitude, longitude: r.longitude, name: r.name, country: r.country };
+        try {
+            const url = `${this.geocodeUrl}?name=${encodeURIComponent(cityName)}&count=1&language=id&format=json`;
+            const res = await offlineHandler.fetchWithCache(
+                `geocode_${cityName}`,
+                () => offlineHandler.fetchWithRetry(url, { timeout: 6000 })
+                    .then(r => r.json()),
+                86400000 // cache 24 jam
+            );
+            
+            if (res.results && res.results.length > 0) {
+                const r = res.results[0];
+                return { latitude: r.latitude, longitude: r.longitude, name: r.name, country: r.country };
+            }
+            throw new Error('Kota tidak ditemukan');
+        } catch (e) {
+            console.warn('Geocode silent fail:', e.message);
+            throw e;
         }
-        throw new Error('Kota tidak ditemukan');
     }
 
     // Ambil data cuaca dari koordinat
     async getWeather(lat, lng) {
-        const res  = await fetch(
-            `${this.weatherUrl}?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m&timezone=auto`
-        );
-        const data = await res.json();
-        if (!data.current) throw new Error('Gagal mengambil data cuaca');
-        return {
-            temperature:  parseFloat(data.current.temperature_2m).toFixed(2),
-            weatherCode:  data.current.weather_code,
-            windSpeed:    parseFloat(data.current.wind_speed_10m).toFixed(2),
-            humidity:     data.current.relative_humidity_2m,
-            description:  this.getWeatherDescription(data.current.weather_code),
-        };
+        try {
+            const url = `${this.weatherUrl}?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m&timezone=auto`;
+            const data = await offlineHandler.fetchWithCache(
+                `weather_${lat}_${lng}`,
+                () => offlineHandler.fetchWithRetry(url, { timeout: 6000 })
+                    .then(r => r.json()),
+                1800000 // cache 30 menit
+            );
+            
+            if (!data.current) throw new Error('No weather data');
+            return {
+                temperature:  parseFloat(data.current.temperature_2m).toFixed(2),
+                weatherCode:  data.current.weather_code,
+                windSpeed:    parseFloat(data.current.wind_speed_10m).toFixed(2),
+                humidity:     data.current.relative_humidity_2m,
+                description:  this.getWeatherDescription(data.current.weather_code),
+                cached: data._cached || false
+            };
+        } catch (e) {
+            console.warn('Weather silent fail:', e.message);
+            // Return default weather saat offline (silent)
+            return {
+                temperature: '0',
+                weatherCode: 0,
+                windSpeed: '0',
+                humidity: 0,
+                description: 'Data tidak tersedia',
+                offline: true
+            };
+        }
     }
 
     // Ambil cuaca berdasarkan nama kota
     async getWeatherByCity(cityName) {
-        const coords  = await this.getCoordinates(cityName);
-        const weather = await this.getWeather(coords.latitude, coords.longitude);
-        return { ...weather, city: coords.name, country: coords.country,
-                 latitude: coords.latitude, longitude: coords.longitude };
+        try {
+            const coords  = await this.getCoordinates(cityName);
+            const weather = await this.getWeather(coords.latitude, coords.longitude);
+            return { ...weather, city: coords.name, country: coords.country,
+                     latitude: coords.latitude, longitude: coords.longitude };
+        } catch (e) {
+            console.warn('Weather by city gagal:', e.message);
+            throw e;
+        }
     }
 
     // Ambil cuaca berdasarkan koordinat

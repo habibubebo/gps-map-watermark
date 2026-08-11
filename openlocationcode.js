@@ -219,3 +219,4 @@ var CodeAreaFn = {
 };
 
 window.OpenLocationCode = OpenLocationCode;
+window.olc = new OpenLocationCode();

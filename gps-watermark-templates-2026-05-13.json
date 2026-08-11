@@ -1,13 +1,15 @@
 {
   "version": 1,
-  "exportedAt": "2026-05-13T13:41:32.224Z",
+  "exportedAt": "2026-05-14T00:34:22.486Z",
   "templates": [
     {
       "name": "Srengat",
       "enableGPS": true,
-      "latitude": "-8.0586",
-      "longitude": "112.0638",
+      "latitude": "-8.058641",
+      "longitude": "112.063679",
       "address": "Jl. Melati No.21, Srengat II, Srengat, Kec. Srengat, Kabupaten Blitar, Jawa Timur 66152",
+      "pinStyle": "teardrop",
+      "pinColor": "#1976d2",
       "manualAddr": true,
       "manualAddress": "Jl. Melati No.21, Srengat II, Srengat, Kec. Srengat, Kabupaten Blitar, Jawa Timur 66152",
       "enableTime": true,
@@ -18,22 +20,26 @@
       "manualSecond": "56",
       "enableWeather": true,
       "weatherCity": "Srengat",
-      "weatherText": "️ Sebagian Berawan  24.90°C  💨 9.50m/s  💧 90%",
+      "weatherText": "Gerimis Ringan  30.00°C  💨 10.80m/s  💧 68%",
       "weatherObj": {
-        "temperature": "24.90",
-        "windSpeed": "9.50",
-        "humidity": "90",
-        "weatherCode": 1,
-        "description": "️ Sebagian Berawan"
+        "temperature": "30.00",
+        "weatherCode": 51,
+        "windSpeed": "10.80",
+        "humidity": 68,
+        "description": "Gerimis Ringan",
+        "city": "Srengat",
+        "country": "Indonesia",
+        "latitude": -8.0601,
+        "longitude": 112.062
       },
       "manualWeather": false,
-      "manualTemp": "24.90",
-      "manualWind": "9.50",
-      "manualHumidity": "90",
-      "manualWeatherCode": "1",
+      "manualTemp": "30.20",
+      "manualWind": "11.00",
+      "manualHumidity": "69",
+      "manualWeatherCode": "51",
       "wmZoom": "130",
       "wmTextScale": "100",
-      "updatedAt": "2026-05-13T13:41:18.034Z"
+      "updatedAt": "2026-05-14T00:32:59.507Z"
     },
     {
       "name": "Kantor",
@@ -41,9 +47,10 @@
       "latitude": "-8.0617",
       "longitude": "111.9072",
       "address": "Jalan Panglima Sudirman, Kedungwaru, Tulungagung, Jawa Timur",
+      "pinStyle": "teardrop",
+      "pinColor": "#388e3c",
       "manualAddr": false,
-      "manualAddr1": "Jl. Melati No.21, Srengat II, Srengat, Kec. Srengat",
-      "manualAddr2": "Kabupaten Blitar, Jawa Timur 66152",
+      "manualAddress": "Jalan Panglima Sudirman, Kedungwaru, Tulungagung, Jawa Timur",
       "enableTime": true,
       "timeFormat": "full",
       "manualDate": "2026-05-13",
@@ -69,9 +76,9 @@
       "manualWind": "11.00",
       "manualHumidity": "69",
       "manualWeatherCode": "51",
-      "wmZoom": "130",
+      "wmZoom": "100",
       "wmTextScale": "100",
-      "updatedAt": "2026-05-13T06:05:15.310Z"
+      "updatedAt": "2026-05-14T00:34:19.738Z"
     }
   ]
 }

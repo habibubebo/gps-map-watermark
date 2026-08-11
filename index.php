@@ -1,10 +1,18 @@
+<?php
+$css_v = filemtime(__DIR__ . '/styles.css');
+$olc_v = filemtime(__DIR__ . '/openlocationcode.js');
+$db_v  = filemtime(__DIR__ . '/db.js');
+$wx_v  = filemtime(__DIR__ . '/weather.js');
+$wm_v  = filemtime(__DIR__ . '/watermark.js');
+$app_v = filemtime(__DIR__ . '/app.js');
+?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>GPS Watermark — Tambahkan Lokasi, Waktu & Cuaca pada Foto</title>
+    <title>GPS Watermark - Tambahkan Lokasi, Waktu &amp; Cuaca pada Foto</title>
     <meta name="description" content="Aplikasi web gratis untuk menambahkan watermark GPS, waktu, dan cuaca pada foto. Lengkap dengan thumbnail peta, template tersimpan, dan export/import.">
     <meta name="author" content="Habibubebo">
     <meta name="theme-color" content="#FFC107">
@@ -12,6 +20,8 @@
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="shortcut icon" href="favicon.svg">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="manifest" href="manifest.json">
 
     <!-- Leaflet Map Library -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
@@ -19,7 +29,7 @@
 
     <!-- Open Graph -->
     <meta property="og:type"        content="website">
-    <meta property="og:title"       content="GPS Watermark — Lokasi, Waktu & Cuaca pada Foto">
+    <meta property="og:title"       content="GPS Watermark - Lokasi, Waktu & Cuaca pada Foto">
     <meta property="og:description" content="Tambahkan watermark GPS, waktu, dan cuaca pada foto Anda. Lengkap dengan thumbnail peta OpenStreetMap, template tersimpan, dan bisa export/import antar device.">
     <meta property="og:image"       content="og-image.png">
     <meta property="og:image:alt"   content="GPS Watermark app preview">
@@ -29,19 +39,39 @@
 
     <!-- Twitter Card -->
     <meta name="twitter:card"        content="summary_large_image">
-    <meta name="twitter:title"       content="GPS Watermark — Lokasi, Waktu & Cuaca pada Foto">
+    <meta name="twitter:title"       content="GPS Watermark - Lokasi, Waktu & Cuaca pada Foto">
     <meta name="twitter:description" content="Tambahkan watermark GPS, waktu, dan cuaca pada foto Anda. Gratis, tanpa login, semua data tersimpan lokal.">
     <meta name="twitter:image"       content="og-image.png">
     <meta name="twitter:image:alt"   content="GPS Watermark app preview">
-    <script src="/logs/track.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="styles.min.css">
+    <!-- Terapkan tema sebelum CSS dimuat untuk mencegah flash -->
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('gpswm-theme');
+                var theme = (saved === 'light' || saved === 'dark')
+                    ? saved
+                    : (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {}
+        })();
+    </script>
+    <link rel="stylesheet" href="styles.css?v=<?php echo $css_v; ?>">
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1><i class="fas fa-camera"></i> GPS Watermark</h1>
-            <p>Tambahkan lokasi, waktu & cuaca pada foto</p>
+        <header class="app-header">
+            <div class="brand">
+                <span class="brand-mark" aria-hidden="true"><i class="fas fa-camera"></i></span>
+                <div class="brand-text">
+                    <h1>GPS Watermark</h1>
+                    <p>Tambahkan lokasi, waktu &amp; cuaca pada foto</p>
+                </div>
+            </div>
+            <button class="theme-toggle" id="themeToggle" type="button" aria-label="Ganti tema terang atau gelap" title="Ganti tema">
+                <i class="fas fa-moon theme-icon theme-icon-moon" aria-hidden="true"></i>
+                <i class="fas fa-sun theme-icon theme-icon-sun" aria-hidden="true"></i>
+            </button>
         </header>
 
         <div class="main-content">
@@ -55,12 +85,12 @@
 
                 <!-- Tab: Upload & Preview -->
                 <div class="tab-content active" id="upload-tab">
-                    <div class="upload-area" id="uploadArea">
+                    <div class="upload-area" id="uploadArea" role="button" tabindex="0" aria-label="Pilih foto untuk diberi watermark">
                         <input type="file" id="imageInput" accept="image/*" hidden>
                         <div class="upload-placeholder">
-                            <div class="upload-icon"><i class="fas fa-folder-open"></i></div>
+                            <div class="upload-icon" aria-hidden="true"><i class="fas fa-folder-open"></i></div>
                             <p>Ketuk atau drag foto ke sini</p>
-                            <small>JPG · PNG · WebP</small>
+                            <small>JPG &middot; PNG &middot; WebP</small>
                         </div>
                     </div>
 
@@ -85,7 +115,9 @@
                     <div class="preview-wrap">
                         <canvas id="previewCanvas"></canvas>
                         <div id="noImagePlaceholder" class="no-image">
+                            <span class="no-image-icon" aria-hidden="true"><i class="fas fa-images"></i></span>
                             <p>Belum ada foto</p>
+                            <small>Upload gambar untuk melihat hasil watermark</small>
                         </div>
                     </div>
 
@@ -140,16 +172,19 @@
                             </div>
 
                             <!-- Search by Address -->
-                            <div class="search-row">
-                                <div class="form-group" style="flex:1;">
-                                    <label>Cari Lokasi</label>
-                                    <input type="text" id="addressSearch" placeholder="Ketik nama tempat atau alamat...">
+                            <div class="search-row-wrap">
+                                <div class="search-row">
+                                    <input type="text" id="addressSearch" placeholder="Cari nama tempat atau alamat..." autocomplete="off">
+                                    <button class="btn btn-outline" id="searchAddressBtn"><i class="fas fa-search"></i> Cari</button>
                                 </div>
-                                <button class="btn btn-outline" id="searchAddressBtn" style="align-self:flex-end;"><i class="fas fa-search"></i> Cari</button>
+                                <div class="search-suggest" id="searchSuggest"></div>
                             </div>
 
                             <!-- Map Preview -->
-                            <div id="mapContainer" class="map-container"></div>
+                            <div class="map-wrapper">
+                                <div id="mapContainer" class="map-container"></div>
+                                <button class="btn btn-primary btn-map-center" id="centerMapBtn" type="button" title="Pusatkan peta ke pin"><i class="fas fa-crosshairs"></i></button>
+                            </div>
 
                             <!-- Koordinat Manual -->
                             <div class="coord-row">
@@ -308,46 +343,204 @@
     </div><!-- /.container -->
 
     <!-- Modal: Template Baru -->
-    <div class="modal" id="newTemplateModal">
+    <div class="modal" id="newTemplateModal" role="dialog" aria-modal="true" aria-labelledby="newTemplateTitle">
         <div class="modal-content">
-            <h2>Template Baru</h2>
+            <h2 id="newTemplateTitle">Template Baru</h2>
             <input type="text" id="newTemplateName" placeholder="Nama template...">
             <div class="modal-actions">
-                <button class="btn btn-primary" id="confirmNewTemplate">Buat</button>
-                <button class="btn btn-secondary" id="cancelNewTemplate">Batal</button>
+                <button class="btn btn-primary" id="confirmNewTemplate" type="button">Buat</button>
+                <button class="btn btn-secondary" id="cancelNewTemplate" type="button">Batal</button>
             </div>
         </div>
     </div>
 
     <!-- Modal: Konfirmasi Import -->
-    <div class="modal" id="importModal">
+    <div class="modal" id="importModal" role="dialog" aria-modal="true" aria-labelledby="importTitle">
         <div class="modal-content">
-            <h2><i class="fas fa-download"></i> Import Template</h2>
+            <h2 id="importTitle"><i class="fas fa-download"></i> Import Template</h2>
             <p class="modal-desc">
                 Ditemukan <strong id="importModalCount">0</strong> template dalam file.<br>
                 Pilih cara import:
             </p>
             <div class="import-options">
-                <button class="btn btn-primary" id="importMergeBtn">
+                <button class="btn btn-primary" id="importMergeBtn" type="button">
                     <i class="fas fa-plus"></i> Gabung
                     <small>Tambahkan ke template yang sudah ada</small>
                 </button>
-                <button class="btn btn-danger" id="importReplaceBtn">
+                <button class="btn btn-danger" id="importReplaceBtn" type="button">
                     <i class="fas fa-rotate"></i> Ganti Semua
                     <small>Hapus template lama, ganti dengan yang baru</small>
                 </button>
             </div>
-            <button class="btn btn-secondary" id="importCancelBtn" style="margin-top:10px;width:100%;">Batal</button>
+            <button class="btn btn-secondary" id="importCancelBtn" type="button" style="margin-top:10px;width:100%;">Batal</button>
         </div>
     </div>
 
     <!-- Open Location Code (Plus Code) Library -->
-    <script src="openlocationcode.js"></script>
+    <script src="openlocationcode.js?v=<?php echo $olc_v; ?>"></script>
     
     <script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.min.js"></script>
-    <script src="db.js"></script>
-    <script src="weather.js"></script>
-    <script src="watermark.js"></script>
-    <script src="app.js"></script>
+    <script src="db.js?v=<?php echo $db_v; ?>"></script>
+    <script src="offline-handler.js"></script>
+    <script src="weather.js?v=<?php echo $wx_v; ?>"></script>
+    <script src="watermark.js?v=<?php echo $wm_v; ?>"></script>
+    <script src="app.js?v=<?php echo $app_v; ?>"></script>
+
+    <!-- PWA Install Toast -->
+    <div class="pwa-toast" id="pwaToast">
+        <div class="pwa-toast-inner">
+            <i class="fas fa-download"></i>
+            <div class="pwa-toast-text">
+                <strong>Install GPS Watermark</strong>
+                <span>Tambahkan ke home screen untuk akses cepat</span>
+            </div>
+            <button class="btn btn-primary btn-sm" id="pwaInstallBtn">Install</button>
+            <button class="pwa-toast-close" id="pwaDismissBtn" type="button"><i class="fas fa-times"></i></button>
+        </div>
+    </div>
+
+    <script>
+    // PWA Install Prompt & Offline Detection
+    (function() {
+        let deferredPrompt = null;
+        const toast = document.getElementById('pwaToast');
+        const installBtn = document.getElementById('pwaInstallBtn');
+        const dismissBtn = document.getElementById('pwaDismissBtn');
+
+        // Enhanced Service Worker Registration with offline tracking
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then((registration) => {
+                    console.log('Service Worker registered:', registration);
+                    
+                    // Check for updates periodically (every 30 minutes)
+                    setInterval(() => {
+                        registration.update();
+                    }, 30 * 60 * 1000);
+                    
+                    // Listen for controller changes
+                    navigator.serviceWorker.addEventListener('controllerchange', () => {
+                        console.log('New Service Worker activated');
+                    });
+                    
+                    // Check for new version and prompt user
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                console.log('New update available (silent install)');
+                            }
+                        });
+                    });
+                })
+                .catch((error) => {
+                    console.warn('Service Worker registration failed:', error);
+                });
+        }
+
+        // Capture beforeinstallprompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            // Only show on mobile-like viewports
+            if (window.innerWidth <= 768) {
+                toast.classList.add('show');
+            }
+        });
+
+        installBtn.addEventListener('click', async () => {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            deferredPrompt = null;
+            toast.classList.remove('show');
+        });
+
+        dismissBtn.addEventListener('click', () => {
+            toast.classList.remove('show');
+        });
+
+        // Hide after app is installed
+        window.addEventListener('appinstalled', () => {
+            toast.classList.remove('show');
+            deferredPrompt = null;
+        });
+        
+        // Handle page visibility for offline detection
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden === false) {
+                // Page became visible, check connection silently
+                fetch(window.location.href, { method: 'HEAD', cache: 'no-store' })
+                    .then(r => {
+                        if (!r.ok) {
+                            console.log('Server error, using cache');
+                        }
+                    })
+                    .catch(() => {
+                        console.log('Still offline or server down, using cache');
+                    });
+            }
+        });
+        
+        // Handle page load errors gracefully — show cached version
+        window.addEventListener('error', (event) => {
+            // Suppress error notifications, let offline handler manage it
+            if (event.message && event.message.includes('Failed to fetch')) {
+                event.preventDefault();
+            }
+        }, true);
+    })();
+
+    // Aksesibilitas: Escape menutup modal & Enter/Space membuka file picker
+    (function() {
+        const modals = ['newTemplateModal', 'importModal'];
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            modals.forEach((id) => {
+                const m = document.getElementById(id);
+                if (m && m.classList.contains('active')) {
+                    m.classList.remove('active');
+                }
+            });
+        });
+
+        const uploadArea = document.getElementById('uploadArea');
+        const imageInput = document.getElementById('imageInput');
+        if (uploadArea && imageInput) {
+            uploadArea.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    imageInput.click();
+                }
+            });
+        }
+    })();
+
+    // Tema terang/gelap (toggle di pojok kanan atas)
+    (function() {
+        const root = document.documentElement;
+        const btn = document.getElementById('themeToggle');
+        if (!btn) return;
+
+        const meta = document.querySelector('meta[name="theme-color"]');
+        const apply = (theme) => {
+            root.setAttribute('data-theme', theme);
+            try { localStorage.setItem('gpswm-theme', theme); } catch (e) {}
+            if (meta) meta.setAttribute('content', theme === 'dark' ? '#151412' : '#FFC107');
+        };
+
+        btn.addEventListener('click', () => {
+            const cur = root.getAttribute('data-theme');
+            apply(cur === 'dark' ? 'light' : 'dark');
+        });
+
+        // Ikuti perubahan tema sistem selama belum pernah toggle manual
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+            if (localStorage.getItem('gpswm-theme')) return;
+            apply(e.matches ? 'dark' : 'light');
+        });
+    })();
+    </script>
 </body>
 </html>

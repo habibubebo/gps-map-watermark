@@ -11,17 +11,20 @@ class WatermarkApp {
         this.map             = null;  // Leaflet map instance
         this.mapMarker       = null;  // Leaflet marker
         this.addressUpdateTimeout = null; // debounce timeout untuk update alamat
+        this.searchDebounce   = null; // debounce timeout untuk live search
+        this.searchResults    = [];   // hasil pencarian saat ini
+        this.searchActiveIdx  = -1;   // index item aktif di dropdown
         this.init();
     }
 
     async init() {
         await db.init();
         this.setupEventListeners();
-        await this.syncToServer();
-        await this.syncFromServer();
         await this.loadTemplates();
         const templates = await db.getAllTemplates();
         if (templates.length > 0) await this.selectTemplate(templates[0].id, null);
+        
+        this.syncToServer();
     }
 
     // ── Event Listeners ──────────────────────────────────────
@@ -65,6 +68,11 @@ class WatermarkApp {
         document.getElementById('addressSearch').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.searchAddress();
         });
+        document.getElementById('addressSearch').addEventListener('input', (e) => this.liveSearch(e.target.value));
+        document.getElementById('addressSearch').addEventListener('keydown', (e) => this.handleSearchKeydown(e));
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-row-wrap')) this.closeSuggest();
+        });
         document.getElementById('pinStyle').addEventListener('change', () => this.updatePreview());
         document.getElementById('pinColor').addEventListener('input', () => this.updatePreview());
         document.querySelectorAll('.color-preset').forEach(btn => {
@@ -74,6 +82,7 @@ class WatermarkApp {
                 this.updatePreview();
             });
         });
+        document.getElementById('centerMapBtn').addEventListener('click', () => this.centerMapOnPin());
 
         // Waktu
         document.getElementById('timeFormat').addEventListener('change', (e) => {
@@ -303,9 +312,12 @@ class WatermarkApp {
 
     // ── GPS Otomatis ─────────────────────────────────────────
     getLocation() {
-        if (!navigator.geolocation) { alert('Geolocation tidak didukung'); return; }
+        if (!navigator.geolocation) { 
+            offlineHandler.showNotification('Geolocation tidak didukung di perangkat ini', 'info');
+            return; 
+        }
         const btn = document.getElementById('getLocationBtn');
-        btn.disabled = true; btn.textContent = '⏳ Mengambil...';
+        btn.disabled = true; btn.innerHTML = '⏳ Mengambil...';
 
         navigator.geolocation.getCurrentPosition(
             async (pos) => {
@@ -313,20 +325,20 @@ class WatermarkApp {
                 const lng = pos.coords.longitude.toFixed(4);
                 document.getElementById('latitude').value  = lat;
                 document.getElementById('longitude').value = lng;
-                btn.disabled = false; btn.textContent = '📍 Ambil Otomatis';
+                btn.disabled = false; btn.innerHTML = '<i class="fas fa-location-dot"></i> Ambil Otomatis';
 
                 document.getElementById('addressInfo').textContent = '⏳ Mengambil alamat...';
                 try {
                     const addrData = await weather.reverseGeocode(lat, lng);
                     if (addrData) {
                         this.address = addrData.fullAddress;
-                        this.addressData = addrData; // simpan detail alamat
+                        this.addressData = addrData;
                     } else {
                         this.address = `${lat}, ${lng}`;
                         this.addressData = null;
                     }
                 } catch (e) {
-                    console.error('Reverse geocode error:', e);
+                    console.warn('Reverse geocode:', e.message);
                     this.address = `${lat}, ${lng}`;
                     this.addressData = null;
                 }
@@ -336,13 +348,15 @@ class WatermarkApp {
                 try {
                     this.weatherObj = await weather.getWeatherByCoordinates(lat, lng);
                     this.showWeatherBadge(this.weatherObj);
-                } catch { /* opsional */ }
+                } catch (e) {
+                    console.warn('Weather fetch:', e.message);
+                }
 
                 this.updatePreview();
             },
             (err) => {
-                alert('Gagal mengambil lokasi: ' + err.message);
-                btn.disabled = false; btn.textContent = '📍 Ambil Otomatis';
+                offlineHandler.handleError(err, 'Geolocation');
+                btn.disabled = false; btn.innerHTML = '<i class="fas fa-location-dot"></i> Ambil Otomatis';
             }
         );
     }
@@ -350,9 +364,12 @@ class WatermarkApp {
     // ── Cuaca Otomatis by kota ───────────────────────────────
     async getWeatherByCity() {
         const city = document.getElementById('weatherCity').value.trim();
-        if (!city) { alert('Masukkan nama kota'); return; }
+        if (!city) { 
+            offlineHandler.showNotification('Masukkan nama kota', 'info');
+            return; 
+        }
         const btn = document.getElementById('getWeatherBtn');
-        btn.disabled = true; btn.textContent = '⏳ Mengambil...';
+        btn.disabled = true; btn.innerHTML = '⏳ Mengambil...';
         try {
             const data = await weather.getWeatherByCity(city);
             this.weatherObj    = data;
@@ -366,17 +383,21 @@ class WatermarkApp {
                 document.getElementById('longitude').value = data.longitude.toFixed(4);
                 try {
                     const addr = await weather.reverseGeocode(data.latitude, data.longitude);
-                    this.address = addr || city;
+                    this.address = addr?.fullAddress || city;
+                    this.addressData = addr || null;
                     document.getElementById('addressInfo').textContent = this.address;
                     document.getElementById('addressInfo').dataset.auto = this.address;
-                } catch { this.address = city; }
+                } catch (e) { 
+                    this.address = city;
+                    console.warn('Address lookup:', e.message);
+                }
             }
             this.showWeatherBadge(data);
             this.updatePreview();
         } catch (err) {
-            alert('Gagal mengambil cuaca: ' + err.message);
+            console.warn('Weather by city:', err.message);
         } finally {
-            btn.disabled = false; btn.textContent = '🌤️ Ambil';
+            btn.disabled = false; btn.innerHTML = '<i class="fas fa-cloud-sun"></i> Ambil';
         }
     }
 
@@ -524,6 +545,9 @@ class WatermarkApp {
             await this.loadTemplates();
             const el = document.querySelector(`.template-item[data-id="${this.currentTemplate.id}"]`);
             if (el) el.classList.add('active');
+
+            // Setelah tersimpan, kembali ke tab Foto
+            this.switchTab('upload', document.querySelector('.tab-btn[data-tab="upload"]'));
         } catch (err) { alert('Gagal menyimpan: ' + err.message); }
     }
 
@@ -692,21 +716,138 @@ class WatermarkApp {
         });
     }
 
+    // ── Live Search (autocomplete saat mengetik) ───────────
+    liveSearch(query) {
+        clearTimeout(this.searchDebounce);
+        query = query.trim();
+        if (query.length < 2) { this.closeSuggest(); return; }
+
+        this.searchDebounce = setTimeout(async () => {
+            try {
+                const results = await this.geocodeAddress(query);
+                this.searchResults = results;
+                this.searchActiveIdx = -1;
+                this.renderSuggest(results);
+            } catch { /* ignore */ }
+        }, 400);
+    }
+
+    renderSuggest(results) {
+        const box = document.getElementById('searchSuggest');
+        if (!results.length) { this.closeSuggest(); return; }
+
+        box.innerHTML = results.map((r, i) => {
+            const name = r.display_name.split(',').slice(0, 2).join(',');
+            const detail = r.display_name;
+            const type = r.type?.replace(/_/g, ' ') || '';
+            return `<div class="search-suggest-item" data-idx="${i}">
+                <span class="suggest-primary">${name}${type ? ' <small style="opacity:.5">' + type + '</small>' : ''}</span>
+                <span class="suggest-secondary">${detail}</span>
+            </div>`;
+        }).join('');
+
+        box.querySelectorAll('.search-suggest-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const idx = parseInt(item.dataset.idx);
+                this.selectSuggestion(idx);
+            });
+        });
+
+        box.classList.add('open');
+    }
+
+    handleSearchKeydown(e) {
+        const box = document.getElementById('searchSuggest');
+        if (!box.classList.contains('open') || !this.searchResults.length) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            this.searchActiveIdx = Math.min(this.searchActiveIdx + 1, this.searchResults.length - 1);
+            this.highlightSuggestItem();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            this.searchActiveIdx = Math.max(this.searchActiveIdx - 1, 0);
+            this.highlightSuggestItem();
+        } else if (e.key === 'Enter') {
+            if (this.searchActiveIdx >= 0) {
+                e.preventDefault();
+                this.selectSuggestion(this.searchActiveIdx);
+            }
+        } else if (e.key === 'Escape') {
+            this.closeSuggest();
+        }
+    }
+
+    highlightSuggestItem() {
+        const items = document.querySelectorAll('.search-suggest-item');
+        items.forEach((el, i) => el.classList.toggle('active', i === this.searchActiveIdx));
+        if (items[this.searchActiveIdx]) items[this.searchActiveIdx].scrollIntoView({ block: 'nearest' });
+    }
+
+    async selectSuggestion(idx) {
+        const result = this.searchResults[idx];
+        if (!result) return;
+
+        this.closeSuggest();
+        document.getElementById('addressSearch').value = result.display_name.split(',')[0];
+
+        const lat = parseFloat(result.lat).toFixed(4);
+        const lng = parseFloat(result.lon).toFixed(4);
+
+        document.getElementById('latitude').value = lat;
+        document.getElementById('longitude').value = lng;
+
+        this.updateMapMarker(lat, lng);
+
+        try {
+            const addrData = await weather.reverseGeocode(lat, lng);
+            if (addrData) {
+                this.address = addrData.fullAddress;
+                this.addressData = addrData;
+            } else {
+                this.address = result.display_name;
+                this.addressData = null;
+            }
+        } catch {
+            this.address = result.display_name;
+            this.addressData = null;
+        }
+        document.getElementById('addressInfo').textContent = this.address;
+        document.getElementById('addressInfo').dataset.auto = this.address;
+
+        try {
+            this.weatherObj = await weather.getWeatherByCoordinates(lat, lng);
+            this.showWeatherBadge(this.weatherObj);
+            if (this.addressData) {
+                const city = this.addressData.county || this.addressData.village || '';
+                if (city) document.getElementById('weatherCity').value = city;
+            }
+        } catch { /* opsional */ }
+
+        this.updatePreview();
+    }
+
+    closeSuggest() {
+        document.getElementById('searchSuggest').classList.remove('open');
+        this.searchActiveIdx = -1;
+    }
+
     // ── Address Search ──────────────────────────────────────
     async searchAddress() {
+        this.closeSuggest();
         const query = document.getElementById('addressSearch').value.trim();
         if (!query) { alert('Masukkan nama tempat atau alamat'); return; }
         
         const btn = document.getElementById('searchAddressBtn');
         btn.disabled = true;
-        btn.textContent = '⏳ Mencari...';
+        btn.innerHTML = '⏳ Mencari...';
         
         try {
             const results = await this.geocodeAddress(query);
             if (results.length === 0) {
                 alert('Lokasi tidak ditemukan');
                 btn.disabled = false;
-                btn.textContent = '🔍 Cari';
+                btn.innerHTML = '<i class="fas fa-search"></i> Cari';
                 return;
             }
             
@@ -742,6 +883,12 @@ class WatermarkApp {
             try {
                 this.weatherObj = await weather.getWeatherByCoordinates(lat, lng);
                 this.showWeatherBadge(this.weatherObj);
+
+                // Update kota cuaca otomatis
+                if (this.addressData) {
+                    const city = this.addressData.county || this.addressData.village || '';
+                    if (city) document.getElementById('weatherCity').value = city;
+                }
             } catch { /* opsional */ }
             
             this.updatePreview();
@@ -749,7 +896,7 @@ class WatermarkApp {
             alert('Gagal mencari lokasi: ' + err.message);
         } finally {
             btn.disabled = false;
-            btn.textContent = '🔍 Cari';
+            btn.innerHTML = '<i class="fas fa-search"></i> Cari';
         }
     }
 
@@ -878,6 +1025,12 @@ class WatermarkApp {
         }
     }
 
+    centerMapOnPin() {
+        if (!this.map || !this.mapMarker) return;
+        const pos = this.mapMarker.getLatLng();
+        this.map.setView(pos, 13, { animate: true });
+    }
+
     setCoordinates(lat, lng) {
         const latStr = parseFloat(lat).toFixed(4);
         const lngStr = parseFloat(lng).toFixed(4);
@@ -888,15 +1041,6 @@ class WatermarkApp {
     }
 
     // ── Server Sync ──────────────────────────────────────────
-    async syncFromServer() {
-        try {
-            const templates = await db.syncFromServer();
-            console.log(`Sync dari server: ${templates.length} template`);
-        } catch (err) {
-            console.warn('Sync dari server gagal:', err);
-        }
-    }
-
     async syncToServer() {
         try {
             const count = await db.syncToServer();

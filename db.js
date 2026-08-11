@@ -32,11 +32,15 @@ class SyncManager {
   async api(payload) {
     const serverUrl = getServerUrl();
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       const res = await fetch(serverUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       if (!res.ok) return null;
       return await res.json();
     } catch {
@@ -77,11 +81,25 @@ class SyncManager {
 
 const syncManager = new SyncManager();
 
+// ── Skema database terpusat (dipakai db.js & offline-handler.js) ──
+// Penting: BUKAN hanya di satu file — siapa pun yang membuka DB lebih dulu
+// akan menjalankan upgrade-nya. Pastikan semua store dibuat di sini.
+function upgradeWatermarkDB(db) {
+    if (!db.objectStoreNames.contains('templates')) {
+        const templateStore = db.createObjectStore('templates', { keyPath: 'id', autoIncrement: true });
+        templateStore.createIndex('name', 'name', { unique: false });
+        templateStore.createIndex('createdAt', 'createdAt', { unique: false });
+    }
+    if (!db.objectStoreNames.contains('apiCache')) {
+        db.createObjectStore('apiCache');
+    }
+}
+
 // ── Database Manager ─────────────────────────────────────────
 class DatabaseManager {
     constructor() {
         this.dbName = 'WatermarkDB';
-        this.version = 1;
+        this.version = 3;
         this.db = null;
     }
 
@@ -102,14 +120,7 @@ class DatabaseManager {
             };
 
             request.onupgradeneeded = (event) => {
-                const db = event.target.result;
-
-                // Buat object store untuk templates
-                if (!db.objectStoreNames.contains('templates')) {
-                    const templateStore = db.createObjectStore('templates', { keyPath: 'id', autoIncrement: true });
-                    templateStore.createIndex('name', 'name', { unique: false });
-                    templateStore.createIndex('createdAt', 'createdAt', { unique: false });
-                }
+                upgradeWatermarkDB(event.target.result);
             };
         });
     }
@@ -251,65 +262,21 @@ class DatabaseManager {
         });
     }
 
-    // Sinkronisasi dari server: ambil template server & gabungkan
-    async syncFromServer() {
-        const deviceId = getDeviceId();
-        const serverTemplates = await syncManager.fetchTemplates(deviceId);
-        if (!serverTemplates.length) return [];
-
-        const localTemplates = await this.getAllTemplates();
-
-        for (const st of serverTemplates) {
-            const match = localTemplates.find(t => t.serverId === st.serverId);
-            const { serverId, ...rest } = st;
-            const data = { ...rest, serverId, id: match?.id };
-
-            if (match && st.updatedAt > match.updatedAt) {
-                // Update lokal langsung (tanpa sync balik ke server)
-                data.updatedAt = new Date().toISOString();
-                const transaction = this.db.transaction(['templates'], 'readwrite');
-                const store = transaction.objectStore('templates');
-                await new Promise((resolve, reject) => {
-                    const req = store.put(data);
-                    req.onsuccess = () => resolve();
-                    req.onerror = () => reject(req.error);
-                });
-            } else if (!match) {
-                // Template dari server belum ada di lokal — tambahkan
-                data.createdAt = data.createdAt || new Date().toISOString();
-                data.updatedAt = data.updatedAt || new Date().toISOString();
-                const transaction = this.db.transaction(['templates'], 'readwrite');
-                const store = transaction.objectStore('templates');
-                await new Promise((resolve, reject) => {
-                    const req = store.add(data);
-                    req.onsuccess = () => resolve();
-                    req.onerror = () => reject(req.error);
-                });
-            }
-        }
-
-        return await this.getAllTemplates();
-    }
-
     // Sinkronisasi ke server: push template lokal yang belum ada di server
     async syncToServer() {
         const deviceId = getDeviceId();
         const localTemplates = await this.getAllTemplates();
         let synced = 0;
 
-        for (const t of localTemplates) {
+        const syncOne = async (t) => {
             if (t.serverId) {
-
                 const { id, serverId, createdAt, updatedAt, ...rest } = t;
                 const ok = await syncManager.updateTemplate(deviceId, serverId, rest);
-                if (ok) synced++;
-
+                if (ok) return true;
             } else {
-
                 const { id, createdAt, updatedAt, ...rest } = t;
                 const serverResult = await syncManager.createTemplate(deviceId, rest);
                 if (serverResult?.serverId) {
-                    // Simpan serverId ke lokal
                     const transaction = this.db.transaction(['templates'], 'readwrite');
                     const store = transaction.objectStore('templates');
                     await new Promise((resolve, reject) => {
@@ -317,10 +284,14 @@ class DatabaseManager {
                         req.onsuccess = () => resolve();
                         req.onerror = () => reject(req.error);
                     });
-                    synced++;
+                    return true;
                 }
             }
-        }
+            return false;
+        };
+
+        const results = await Promise.allSettled(localTemplates.map(syncOne));
+        synced = results.filter(r => r.status === 'fulfilled' && r.value === true).length;
 
         return synced;
     }

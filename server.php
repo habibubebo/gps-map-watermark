@@ -15,6 +15,9 @@ header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
@@ -170,16 +173,25 @@ switch ($action) {
 
     case 'delete':
         $serverId = $input['serverId'] ?? '';
-        if (!$deviceId || !$serverId) { jsonResponse(400, ['error' => 'Missing deviceId or serverId']); break; }
+        $tplIndex = $input['tplIndex'] ?? null;
+
+        if (!$deviceId) { jsonResponse(400, ['error' => 'Missing deviceId']); break; }
+        if ($serverId === '' && $tplIndex === null) { jsonResponse(400, ['error' => 'Missing serverId or tplIndex']); break; }
 
         $templates = getDeviceTemplates($deviceId);
         $found = false;
-        foreach ($templates as $i => $t) {
-            if (($t['serverId'] ?? null) === $serverId) {
-                array_splice($templates, $i, 1);
-                $found = true;
-                break;
+
+        if ($serverId !== '') {
+            foreach ($templates as $i => $t) {
+                if (($t['serverId'] ?? null) === $serverId) {
+                    array_splice($templates, $i, 1);
+                    $found = true;
+                    break;
+                }
             }
+        } elseif ($tplIndex !== null && isset($templates[$tplIndex])) {
+            array_splice($templates, $tplIndex, 1);
+            $found = true;
         }
 
         if (!$found) {
@@ -192,7 +204,20 @@ switch ($action) {
         break;
 
     case 'deleteAll':
+        if (!$deviceId) { jsonResponse(400, ['error' => 'Missing deviceId']); break; }
         setDeviceTemplates($deviceId, []);
+        jsonResponse(200, ['success' => true]);
+        break;
+
+    case 'deleteDevice':
+        if (!$deviceId) { jsonResponse(400, ['error' => 'Missing deviceId']); break; }
+        $data = readData();
+        if (!isset($data[$deviceId])) {
+            jsonResponse(404, ['error' => 'Device not found']);
+            break;
+        }
+        unset($data[$deviceId]);
+        writeData($data);
         jsonResponse(200, ['success' => true]);
         break;
 

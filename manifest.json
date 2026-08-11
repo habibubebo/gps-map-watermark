@@ -1,0 +1,36 @@
+{
+    "name": "GPS Watermark — Offline Ready",
+    "short_name": "GPS WM",
+    "description": "Tambahkan lokasi, waktu & cuaca pada foto. Bekerja offline tanpa server",
+    "start_url": "./index.php",
+    "scope": "./",
+    "display": "standalone",
+    "background_color": "#FFC107",
+    "theme_color": "#FFC107",
+    "orientation": "any",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": ["utilities", "photo"],
+    "screenshots": [
+        {
+            "src": "og-image.png",
+            "sizes": "1200x630",
+            "type": "image/png",
+            "form_factor": "wide",
+            "label": "GPS Watermark app interface"
+        }
+    ]
+}
