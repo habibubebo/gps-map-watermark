@@ -43,46 +43,46 @@ class SyncManager {
       clearTimeout(timeoutId);
       if (!res.ok) return null;
       return await res.json();
-    } catch {
+    } catch (e) {
       return null;
     }
   }
 
   async checkHealth() {
     const res = await this.api({ action: 'health' });
-    return res?.status === 'ok';
+    return res != null && res.status === 'ok';
   }
 
   async fetchTemplates(deviceId) {
     const data = await this.api({ action: 'get', deviceId, userAgent: navigator.userAgent });
-    return data?.templates || [];
+    return (data != null && data.templates) || [];
   }
 
   async createTemplate(deviceId, templateData) {
     const data = await this.api({ action: 'create', deviceId, userAgent: navigator.userAgent, ...templateData });
-    return data?.template || null;
+    return (data != null && data.template) || null;
   }
 
   async updateTemplate(deviceId, serverId, templateData) {
     const data = await this.api({ action: 'update', deviceId, serverId, userAgent: navigator.userAgent, ...templateData });
-    return data?.success === true;
+    return data != null && data.success === true;
   }
 
   async deleteTemplate(deviceId, serverId) {
     const data = await this.api({ action: 'delete', deviceId, serverId, userAgent: navigator.userAgent });
-    return data?.success === true;
+    return data != null && data.success === true;
   }
 
   async deleteAllTemplates(deviceId) {
     const data = await this.api({ action: 'deleteAll', deviceId, userAgent: navigator.userAgent });
-    return data?.success === true;
+    return data != null && data.success === true;
   }
 }
 
 const syncManager = new SyncManager();
 
 // ── Skema database terpusat (dipakai db.js & offline-handler.js) ──
-// Penting: BUKAN hanya di satu file — siapa pun yang membuka DB lebih dulu
+// Penting: BUKAN hanya di satu file - siapa pun yang membuka DB lebih dulu
 // akan menjalankan upgrade-nya. Pastikan semua store dibuat di sini.
 function upgradeWatermarkDB(db) {
     if (!db.objectStoreNames.contains('templates')) {
@@ -134,7 +134,7 @@ class DatabaseManager {
 
         const data = {
             ...templateData,
-            serverId: serverResult?.serverId || null,
+            serverId: (serverResult != null && serverResult.serverId) || null,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
@@ -165,10 +165,10 @@ class DatabaseManager {
         const existing = await this.getTemplate(id);
 
         // Sync ke server
-        if (existing?.serverId) {
+        if (existing != null && existing.serverId) {
             await syncManager.updateTemplate(deviceId, existing.serverId, templateData);
         } else {
-            // Template belum punya serverId — buat baru di server
+            // Template belum punya serverId - buat baru di server
             const serverResult = await syncManager.createTemplate(deviceId, templateData);
             if (serverResult) {
                 templateData.serverId = serverResult.serverId;
@@ -241,7 +241,7 @@ class DatabaseManager {
         const existing = await this.getTemplate(id);
 
         // Hapus dari server
-        if (existing?.serverId) {
+        if (existing != null && existing.serverId) {
             await syncManager.deleteTemplate(deviceId, existing.serverId);
         }
 
@@ -276,7 +276,7 @@ class DatabaseManager {
             } else {
                 const { id, createdAt, updatedAt, ...rest } = t;
                 const serverResult = await syncManager.createTemplate(deviceId, rest);
-                if (serverResult?.serverId) {
+                if (serverResult != null && serverResult.serverId) {
                     const transaction = this.db.transaction(['templates'], 'readwrite');
                     const store = transaction.objectStore('templates');
                     await new Promise((resolve, reject) => {

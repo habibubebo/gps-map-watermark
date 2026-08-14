@@ -43,6 +43,43 @@ class WatermarkApp {
             if (e.target.files.length > 0) this.handleImageUpload(e.target.files[0]);
         });
 
+        // Kamera (mobile): buka sheet pilih kamera depan / belakang
+        const cameraBtn         = document.getElementById('openCameraBtn');
+        const cameraSheet       = document.getElementById('cameraSheet');
+        const cameraBackInput   = document.getElementById('cameraBackInput');
+        const cameraFrontInput  = document.getElementById('cameraFrontInput');
+
+        const openCameraSheet = () => {
+            cameraSheet.classList.add('show');
+            cameraSheet.setAttribute('aria-hidden', 'false');
+            document.getElementById('cameraBackBtn').focus();
+        };
+        const closeCameraSheet = () => {
+            cameraSheet.classList.remove('show');
+            cameraSheet.setAttribute('aria-hidden', 'true');
+        };
+        const triggerCamera = (input) => {
+            closeCameraSheet();
+            // Pindah ke tab Foto agar hasil langsung terlihat
+            this.switchTab('upload', document.querySelector('.bottom-nav-item[data-tab="upload"]'));
+            input.click();
+        };
+
+        cameraBtn.addEventListener('click', openCameraSheet);
+        document.getElementById('cameraSheetClose').addEventListener('click', closeCameraSheet);
+        document.getElementById('cameraSheetBackdrop').addEventListener('click', closeCameraSheet);
+        document.getElementById('cameraBackBtn').addEventListener('click', () => triggerCamera(cameraBackInput));
+        document.getElementById('cameraFrontBtn').addEventListener('click', () => triggerCamera(cameraFrontInput));
+        [cameraBackInput, cameraFrontInput].forEach((input) => {
+            input.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) this.handleImageUpload(e.target.files[0]);
+                e.target.value = '';
+            });
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeCameraSheet();
+        });
+
         // Action buttons
         document.getElementById('downloadBtn').addEventListener('click', () => this.downloadImage());
         document.getElementById('resetBtn').addEventListener('click', () => this.resetImage());
@@ -98,7 +135,7 @@ class WatermarkApp {
         document.getElementById('getWeatherBtn').addEventListener('click', () => this.getWeatherByCity());
         document.getElementById('toggleManualWeather').addEventListener('click', () => this.toggleManualWeather());
 
-        // Manual cuaca inputs — live preview
+        // Manual cuaca inputs - live preview
         ['manualTemp','manualWind','manualHumidity','manualWeatherCode'].forEach(id => {
             document.getElementById(id).addEventListener('input', () => {
                 if (this.manualWeather) {
@@ -109,7 +146,7 @@ class WatermarkApp {
             });
         });
 
-        // Manual alamat input — live preview
+        // Manual alamat input - live preview
         document.getElementById('manualAddress').addEventListener('input', () => {
             if (this.manualAddr) {
                 this.address = this.buildManualAddress();
@@ -120,10 +157,15 @@ class WatermarkApp {
 
         // Tabs
         document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab, e.target));
+            btn.addEventListener('click', (e) => this.switchTab(e.currentTarget.dataset.tab, e.currentTarget));
         });
 
-        // Live preview — checkboxes & selects
+        // Bottom nav (mobile): sinkronkan tab
+        document.querySelectorAll('.bottom-nav-item[data-tab]').forEach(btn => {
+            btn.addEventListener('click', (e) => this.switchTab(e.currentTarget.dataset.tab, e.currentTarget));
+        });
+
+        // Live preview - checkboxes & selects
         ['enableGPS','enableTime','enableWeather'].forEach(id => {
             document.getElementById(id).addEventListener('change', () => this.updatePreview());
         });
@@ -145,7 +187,7 @@ class WatermarkApp {
         });
 
         // Refresh
-        // (dihapus — preview sudah realtime)
+        // (dihapus - preview sudah realtime)
     }
 
     // ── Toggle manual alamat ─────────────────────────────────
@@ -154,7 +196,7 @@ class WatermarkApp {
         const wrap = document.getElementById('manualAddrWrap');
         const btn  = document.getElementById('toggleManualAddr');
         wrap.style.display = this.manualAddr ? 'block' : 'none';
-        btn.textContent    = this.manualAddr ? '✖ Tutup Manual' : '✏️ Isi Manual';
+        btn.innerHTML    = this.manualAddr ? '<i class="fas fa-times"></i> Tutup Manual' : '<i class="fas fa-pen"></i> Isi Manual';
         btn.classList.toggle('btn-outline-active', this.manualAddr);
 
         if (!this.manualAddr) {
@@ -175,7 +217,7 @@ class WatermarkApp {
         const wrap = document.getElementById('manualWeatherWrap');
         const btn  = document.getElementById('toggleManualWeather');
         wrap.style.display = this.manualWeather ? 'block' : 'none';
-        btn.textContent    = this.manualWeather ? '✖ Tutup Manual' : '✏️ Manual';
+        btn.innerHTML    = this.manualWeather ? '<i class="fas fa-times"></i> Tutup Manual' : '<i class="fas fa-pen"></i> Manual';
         btn.classList.toggle('btn-outline-active', this.manualWeather);
 
         if (this.manualWeather) {
@@ -184,7 +226,7 @@ class WatermarkApp {
                 document.getElementById('manualTemp').value        = this.weatherObj.temperature;
                 document.getElementById('manualWind').value        = this.weatherObj.windSpeed;
                 document.getElementById('manualHumidity').value    = this.weatherObj.humidity;
-                document.getElementById('manualWeatherCode').value = this.weatherObj.weatherCode ?? 0;
+                document.getElementById('manualWeatherCode').value = this.weatherObj.weatherCode != null ? this.weatherObj.weatherCode : 0;
             }
             this.weatherObj = this.buildManualWeather();
             this.showWeatherBadge(this.weatherObj);
@@ -199,7 +241,9 @@ class WatermarkApp {
             windSpeed:    document.getElementById('manualWind').value      || '0',
             humidity:     document.getElementById('manualHumidity').value  || '0',
             weatherCode:  code,
-            description:  document.getElementById('manualWeatherCode').selectedOptions[0]?.text.replace(/^.{2}\s*/,'') || '',
+            description:  document.getElementById('manualWeatherCode').selectedOptions[0] != null
+                ? document.getElementById('manualWeatherCode').selectedOptions[0].text.replace(/^.{2}\s*/,'')
+                : '',
         };
     }
 
@@ -265,11 +309,11 @@ class WatermarkApp {
     }
 
     // ── Refresh ──────────────────────────────────────────────
-    // (dihapus — preview sudah realtime)
+    // (dihapus - preview sudah realtime)
 
     // ── Download ─────────────────────────────────────────────
     downloadImage() {
-        // Ambil waktu dari watermark (manual atau otomatis) — bukan realtime
+        // Ambil waktu dari watermark (manual atau otomatis) - bukan realtime
         const timeFormat = document.getElementById('timeFormat').value;
         let ts;
         if (timeFormat === 'manual') {
@@ -317,7 +361,7 @@ class WatermarkApp {
             return; 
         }
         const btn = document.getElementById('getLocationBtn');
-        btn.disabled = true; btn.innerHTML = '⏳ Mengambil...';
+        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengambil...';
 
         navigator.geolocation.getCurrentPosition(
             async (pos) => {
@@ -327,7 +371,7 @@ class WatermarkApp {
                 document.getElementById('longitude').value = lng;
                 btn.disabled = false; btn.innerHTML = '<i class="fas fa-location-dot"></i> Ambil Otomatis';
 
-                document.getElementById('addressInfo').textContent = '⏳ Mengambil alamat...';
+                document.getElementById('addressInfo').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengambil alamat...';
                 try {
                     const addrData = await weather.reverseGeocode(lat, lng);
                     if (addrData) {
@@ -369,13 +413,13 @@ class WatermarkApp {
             return; 
         }
         const btn = document.getElementById('getWeatherBtn');
-        btn.disabled = true; btn.innerHTML = '⏳ Mengambil...';
+        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengambil...';
         try {
             const data = await weather.getWeatherByCity(city);
             this.weatherObj    = data;
             this.manualWeather = false;
             document.getElementById('manualWeatherWrap').style.display = 'none';
-            document.getElementById('toggleManualWeather').textContent = '✏️ Manual';
+            document.getElementById('toggleManualWeather').innerHTML = '<i class="fas fa-pen"></i> Manual';
             document.getElementById('toggleManualWeather').classList.remove('btn-outline-active');
 
             if (!document.getElementById('latitude').value) {
@@ -383,7 +427,7 @@ class WatermarkApp {
                 document.getElementById('longitude').value = data.longitude.toFixed(4);
                 try {
                     const addr = await weather.reverseGeocode(data.latitude, data.longitude);
-                    this.address = addr?.fullAddress || city;
+                    this.address = (addr != null && addr.fullAddress) ? addr.fullAddress : city;
                     this.addressData = addr || null;
                     document.getElementById('addressInfo').textContent = this.address;
                     document.getElementById('addressInfo').dataset.auto = this.address;
@@ -435,14 +479,14 @@ class WatermarkApp {
         this.currentTemplate = t;
 
         document.getElementById('templateName').value      = t.name;
-        document.getElementById('enableGPS').checked       = t.enableGPS ?? true;
+        document.getElementById('enableGPS').checked       = t.enableGPS != null ? t.enableGPS : true;
         document.getElementById('latitude').value          = t.latitude  || '';
         document.getElementById('longitude').value         = t.longitude || '';
         document.getElementById('pinStyle').value          = t.pinStyle  || 'teardrop';
         document.getElementById('pinColor').value          = t.pinColor  || '#E53935';
-        document.getElementById('enableTime').checked      = t.enableTime ?? true;
+        document.getElementById('enableTime').checked      = t.enableTime != null ? t.enableTime : true;
         document.getElementById('timeFormat').value        = t.timeFormat || 'full';
-        document.getElementById('enableWeather').checked   = t.enableWeather ?? true;
+        document.getElementById('enableWeather').checked   = t.enableWeather != null ? t.enableWeather : true;
         document.getElementById('weatherCity').value       = t.weatherCity || '';
         document.getElementById('weatherInfo').textContent = t.weatherText || '';
         document.getElementById('addressInfo').textContent = t.address || '';
@@ -455,7 +499,7 @@ class WatermarkApp {
         // Manual alamat
         this.manualAddr = t.manualAddr || false;
         document.getElementById('manualAddrWrap').style.display = this.manualAddr ? 'block' : 'none';
-        document.getElementById('toggleManualAddr').textContent = this.manualAddr ? '✖ Tutup Manual' : '✏️ Isi Manual';
+        document.getElementById('toggleManualAddr').innerHTML = this.manualAddr ? '<i class="fas fa-times"></i> Tutup Manual' : '<i class="fas fa-pen"></i> Isi Manual';
         document.getElementById('toggleManualAddr').classList.toggle('btn-outline-active', this.manualAddr);
         document.getElementById('manualAddress').value = t.manualAddress || t.address || '';
 
@@ -463,23 +507,23 @@ class WatermarkApp {
         const isManualTime = t.timeFormat === 'manual';
         document.getElementById('manualTimeWrap').style.display = isManualTime ? 'block' : 'none';
         document.getElementById('manualDate').value   = t.manualDate   || '';
-        document.getElementById('manualHour').value   = t.manualHour   ?? '';
-        document.getElementById('manualMinute').value = t.manualMinute ?? '';
-        document.getElementById('manualSecond').value = t.manualSecond ?? '';
+        document.getElementById('manualHour').value   = t.manualHour   != null ? t.manualHour   : '';
+        document.getElementById('manualMinute').value = t.manualMinute != null ? t.manualMinute : '';
+        document.getElementById('manualSecond').value = t.manualSecond != null ? t.manualSecond : '';
 
         // Manual cuaca
         this.manualWeather = t.manualWeather || false;
         document.getElementById('manualWeatherWrap').style.display = this.manualWeather ? 'block' : 'none';
-        document.getElementById('toggleManualWeather').textContent = this.manualWeather ? '✖ Tutup Manual' : '✏️ Manual';
+        document.getElementById('toggleManualWeather').innerHTML = this.manualWeather ? '<i class="fas fa-times"></i> Tutup Manual' : '<i class="fas fa-pen"></i> Manual';
         document.getElementById('toggleManualWeather').classList.toggle('btn-outline-active', this.manualWeather);
         document.getElementById('manualTemp').value         = t.manualTemp     || '';
         document.getElementById('manualWind').value         = t.manualWind     || '';
         document.getElementById('manualHumidity').value     = t.manualHumidity || '';
-        document.getElementById('manualWeatherCode').value  = t.manualWeatherCode ?? 0;
+        document.getElementById('manualWeatherCode').value  = t.manualWeatherCode != null ? t.manualWeatherCode : 0;
 
         // Zoom & text scale
-        const zoom      = t.wmZoom      ?? 100;
-        const textScale = t.wmTextScale ?? 100;
+        const zoom      = t.wmZoom      != null ? t.wmZoom      : 100;
+        const textScale = t.wmTextScale != null ? t.wmTextScale : 100;
         document.getElementById('wmZoom').value              = zoom;
         document.getElementById('wmTextScale').value         = textScale;
         document.getElementById('zoomVal').textContent       = zoom + '%';
@@ -623,7 +667,7 @@ class WatermarkApp {
 
             // Validasi struktur
             if (!payload.templates || !Array.isArray(payload.templates)) {
-                alert('File tidak valid — bukan file export GPS Watermark.'); return;
+                alert('File tidak valid. Bukan file export GPS Watermark.'); return;
             }
 
             const mode = await this.showImportDialog(payload.templates.length);
@@ -644,13 +688,13 @@ class WatermarkApp {
             }
 
             await this.loadTemplates();
-            alert(`✅ ${count} template berhasil di-import.`);
+            alert(count + ' template berhasil di-import.');
         } catch (err) {
             alert('Gagal membaca file: ' + err.message);
         }
     }
 
-    // ── Load template Kantor (hardcode — hindari CORS) ─────
+    // ── Load template Kantor (hardcode - hindari CORS) ─────
     async loadKantorTemplate() {
         const kantor = {
             name: "Kantor",
@@ -697,7 +741,7 @@ class WatermarkApp {
         }
     }
 
-    // Dialog pilihan import — returns 'merge' | 'replace' | 'cancel'
+    // Dialog pilihan import - returns 'merge' | 'replace' | 'cancel'
     showImportDialog(count) {
         return new Promise((resolve) => {
             const modal = document.getElementById('importModal');
@@ -728,7 +772,7 @@ class WatermarkApp {
                 this.searchResults = results;
                 this.searchActiveIdx = -1;
                 this.renderSuggest(results);
-            } catch { /* ignore */ }
+            } catch (e) { /* ignore */ }
         }, 400);
     }
 
@@ -739,7 +783,7 @@ class WatermarkApp {
         box.innerHTML = results.map((r, i) => {
             const name = r.display_name.split(',').slice(0, 2).join(',');
             const detail = r.display_name;
-            const type = r.type?.replace(/_/g, ' ') || '';
+            const type = r.type != null ? r.type.replace(/_/g, ' ') : '';
             return `<div class="search-suggest-item" data-idx="${i}">
                 <span class="suggest-primary">${name}${type ? ' <small style="opacity:.5">' + type + '</small>' : ''}</span>
                 <span class="suggest-secondary">${detail}</span>
@@ -808,7 +852,7 @@ class WatermarkApp {
                 this.address = result.display_name;
                 this.addressData = null;
             }
-        } catch {
+        } catch (e) {
             this.address = result.display_name;
             this.addressData = null;
         }
@@ -822,7 +866,7 @@ class WatermarkApp {
                 const city = this.addressData.county || this.addressData.village || '';
                 if (city) document.getElementById('weatherCity').value = city;
             }
-        } catch { /* opsional */ }
+        } catch (e) { /* opsional */ }
 
         this.updatePreview();
     }
@@ -840,7 +884,7 @@ class WatermarkApp {
         
         const btn = document.getElementById('searchAddressBtn');
         btn.disabled = true;
-        btn.innerHTML = '⏳ Mencari...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mencari...';
         
         try {
             const results = await this.geocodeAddress(query);
@@ -872,7 +916,7 @@ class WatermarkApp {
                     this.address = result.display_name;
                     this.addressData = null;
                 }
-            } catch {
+            } catch (e) {
                 this.address = result.display_name;
                 this.addressData = null;
             }
@@ -889,7 +933,7 @@ class WatermarkApp {
                     const city = this.addressData.county || this.addressData.village || '';
                     if (city) document.getElementById('weatherCity').value = city;
                 }
-            } catch { /* opsional */ }
+            } catch (e) { /* opsional */ }
             
             this.updatePreview();
         } catch (err) {
@@ -953,7 +997,8 @@ class WatermarkApp {
                         if (this.address) {
                             // Ambil bagian terakhir dari alamat (biasanya kota/kabupaten)
                             const parts = this.address.split(',');
-                            const city = parts[parts.length - 2]?.trim() || parts[parts.length - 1]?.trim() || '';
+                            const city = (parts[parts.length - 2] != null ? parts[parts.length - 2].trim() : '')
+                                      || (parts[parts.length - 1] != null ? parts[parts.length - 1].trim() : '') || '';
                             document.getElementById('weatherCity').value = city;
                         }
                         
@@ -986,9 +1031,9 @@ class WatermarkApp {
             maxZoom: 19,
         }).addTo(this.map);
         
-        // Custom marker icon (hanya emoji)
+        // Custom marker icon
         const customIcon = L.divIcon({
-            html: `<div style="font-size: 32px; line-height: 1; cursor: grab;">📍</div>`,
+            html: `<i class="fas fa-map-pin" style="font-size: 32px; color: #e53935; text-shadow: 0 2px 4px rgba(0,0,0,0.35); line-height: 1; cursor: grab;"></i>`,
             iconSize: [32, 32],
             iconAnchor: [16, 32],
             popupAnchor: [0, -32],
@@ -1054,6 +1099,9 @@ class WatermarkApp {
     switchTab(tabName, btn) {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         if (btn) btn.classList.add('active');
+        document.querySelectorAll('.bottom-nav-item[data-tab]').forEach(b => {
+            b.classList.toggle('active', b.dataset.tab === tabName);
+        });
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         document.getElementById(`${tabName}-tab`).classList.add('active');
         

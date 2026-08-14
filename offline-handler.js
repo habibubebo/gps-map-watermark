@@ -1,7 +1,7 @@
 /**
- * Offline Handler — Menangani kegagalan API saat server tidak merespon
+ * Offline Handler - Menangani kegagalan API saat server tidak merespon
  * Memastikan aplikasi tetap berfungsi dengan data cache atau fallback
- * SILENT MODE — Tidak menampilkan notifikasi error, hanya info penting
+ * SILENT MODE - Tidak menampilkan notifikasi error, hanya info penting
  */
 
 class OfflineHandler {
@@ -94,7 +94,7 @@ class OfflineHandler {
 
     /**
      * Get data dari IndexedDB cache sebelum mengambil dari API
-     * Silent operation — tidak menampilkan pesan error
+     * Silent operation - tidak menampilkan pesan error
      */
     async fetchWithCache(key, fetchFn, ttl = 3600000) { // default 1 jam
         try {
@@ -137,7 +137,7 @@ class OfflineHandler {
                 result.onsuccess = () => resolve(result.result);
                 result.onerror = () => reject(result.error);
             });
-        } catch {
+        } catch (e) {
             return null;
         }
     }
@@ -152,7 +152,7 @@ class OfflineHandler {
                 tx.oncomplete = () => resolve();
                 tx.onerror = () => reject(tx.error);
             });
-        } catch {
+        } catch (e) {
             // Silent fail
         }
     }
@@ -183,7 +183,7 @@ class OfflineHandler {
     }
 
     /**
-     * Silent error handling — log only, tidak notify user
+     * Silent error handling - log only, tidak notify user
      */
     handleError(error, context = '') {
         console.warn(`[${context}] Error (silent):`, error.message);

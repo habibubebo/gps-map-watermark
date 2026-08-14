@@ -1,7 +1,8 @@
-const CACHE_NAME = 'gps-watermark-v2';
-const STATIC_ASSETS_CACHE = 'gps-watermark-static-v2';
-const CDN_CACHE = 'gps-watermark-cdn-v2';
-const FALLBACK_CACHE = 'gps-watermark-fallback-v2';
+// v3 - bump saat deploy agar semua cache lama ikut dihapus
+const CACHE_NAME = 'gps-watermark-v3';
+const STATIC_ASSETS_CACHE = 'gps-watermark-static-v3';
+const CDN_CACHE = 'gps-watermark-cdn-v3';
+const FALLBACK_CACHE = 'gps-watermark-fallback-v3';
 
 // Critical assets untuk offline functionality
 const CRITICAL_ASSETS = [
@@ -39,7 +40,7 @@ const EXTERNAL_RESOURCES = [
     }
 ];
 
-// Install — cache all critical assets
+// Install - cache all critical assets
 self.addEventListener('install', (e) => {
     e.waitUntil(
         Promise.all([
@@ -69,7 +70,7 @@ self.addEventListener('message', (event) => {
     }
 });
 
-// Activate — clean old caches
+// Activate - clean old caches
 self.addEventListener('activate', (e) => {
     e.waitUntil(
         caches.keys().then((keys) => {
@@ -82,7 +83,7 @@ self.addEventListener('activate', (e) => {
     self.clients.claim();
 });
 
-// Fetch — Smart caching strategy
+// Fetch - Smart caching strategy
 self.addEventListener('fetch', (e) => {
     const url = new URL(e.request.url);
     
@@ -121,7 +122,7 @@ self.addEventListener('fetch', (e) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GPS Watermark — Loading...</title>
+    <title>GPS Watermark - Loading...</title>
     <script>
         // Auto-reload atau redirect to cache
         setTimeout(() => {
@@ -149,7 +150,7 @@ self.addEventListener('fetch', (e) => {
         return;
     }
 
-    // Internal assets — stale-while-revalidate
+    // Internal assets - stale-while-revalidate
     if (url.hostname === self.location.hostname) {
         e.respondWith(
             caches.match(e.request).then((cached) => {
@@ -169,7 +170,7 @@ self.addEventListener('fetch', (e) => {
         return;
     }
 
-    // External CDN resources — cache-first with network fallback
+    // External CDN resources - cache-first with network fallback
     if (e.request.url.includes('cdn.jsdelivr.net') || 
         e.request.url.includes('cdnjs.cloudflare.com')) {
         
@@ -216,7 +217,7 @@ self.addEventListener('fetch', (e) => {
         return;
     }
 
-    // Weather API — network-first with timeout
+    // Weather API - network-first with timeout
     if (e.request.url.includes('open-meteo.com') || 
         e.request.url.includes('nominatim.openstreetmap.org')) {
         

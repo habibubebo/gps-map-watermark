@@ -1,6 +1,6 @@
 <?php
 /**
- * GPS Watermark — Server Sync API
+ * GPS Watermark - Server Sync API
  *
  * Satu endpoint untuk semua operasi template.
  * Dihubungi otomatis oleh client dari window.location.

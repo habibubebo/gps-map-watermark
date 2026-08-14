@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GPS Watermark — Mode Offline</title>
+    <title>GPS Watermark - Mode Offline</title>
     <style>
         * {
             margin: 0;
@@ -15,6 +15,7 @@
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             background: linear-gradient(160deg, #FFC107 0%, #FF8F00 100%);
             min-height: 100vh;
+            min-height: 100dvh;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -33,6 +34,15 @@
         .offline-icon {
             font-size: 60px;
             margin-bottom: 20px;
+            color: #FFC107;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .offline-icon svg {
+            width: 64px;
+            height: 64px;
+            filter: drop-shadow(0 4px 10px rgba(255, 193, 7, 0.35));
         }
         
         .offline-container h1 {
@@ -142,7 +152,13 @@
 </head>
 <body>
     <div class="offline-container">
-        <div class="offline-icon">🌐</div>
+        <div class="offline-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+        </div>
         
         <h1>Mode Offline</h1>
         <p>Server utama tidak merespon, tapi aplikasi GPS Watermark tetap bisa digunakan!</p>

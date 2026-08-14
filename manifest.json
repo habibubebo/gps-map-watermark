@@ -1,5 +1,5 @@
 {
-    "name": "GPS Watermark — Offline Ready",
+    "name": "GPS Watermark - Offline Ready",
     "short_name": "GPS WM",
     "description": "Tambahkan lokasi, waktu & cuaca pada foto. Bekerja offline tanpa server",
     "start_url": "./index.php",

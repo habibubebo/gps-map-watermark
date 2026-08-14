@@ -27,7 +27,7 @@ class WatermarkManager {
         });
     }
 
-    // Load thumbnail peta — 3×3 tiles, crop agar koordinat tepat di tengah
+    // Load thumbnail peta - 3×3 tiles, crop agar koordinat tepat di tengah
     loadMapThumbnail(lat, lng) {
         return new Promise((resolve) => {
             const ZOOM     = 16;
@@ -44,7 +44,7 @@ class WatermarkManager {
             const tileX0   = Math.floor(tileXf);
             const tileY0   = Math.floor(tileYf);
 
-            // Offset piksel koordinat di dalam tile tengah (0–255)
+            // Offset piksel koordinat di dalam tile tengah (0-255)
             const offX     = (tileXf - tileX0) * TILE_PX;  // piksel dari kiri tile tengah
             const offY     = (tileYf - tileY0) * TILE_PX;  // piksel dari atas tile tengah
 
@@ -110,9 +110,9 @@ class WatermarkManager {
         const W = this.canvas.width;
         const H = this.canvas.height;
 
-        // zoom: 0.5 – 2.0 (default 1.0), textScale: 0.5 – 2.0 (default 1.0)
-        const zoom      = settings.zoom      ?? 1.0;
-        const textScale = settings.textScale ?? 1.0;
+        // zoom: 0.5 - 2.0 (default 1.0), textScale: 0.5 - 2.0 (default 1.0)
+        const zoom      = settings.zoom      != null ? settings.zoom      : 1.0;
+        const textScale = settings.textScale != null ? settings.textScale : 1.0;
 
         // Skala relatif terhadap lebar gambar × zoom
         const scale = (W / 1080) * zoom;
@@ -189,11 +189,11 @@ class WatermarkManager {
                 this.ctx.beginPath();
                 this.roundRect(mapX, mapY, mapSize, mapSize, Math.round(6 * scale));
                 this.ctx.clip();
-                // mapImg adalah canvas 256×256 — scale ke mapSize×mapSize
+                // mapImg adalah canvas 256×256 - scale ke mapSize×mapSize
                 this.ctx.drawImage(mapImg, 0, 0, 256, 256, mapX, mapY, mapSize, mapSize);
                 this.ctx.restore();
 
-                // Pin merah — koordinat selalu tepat di tengah thumbnail
+                // Pin merah - koordinat selalu tepat di tengah thumbnail
                 const pinCX = mapX + mapSize / 2;
                 const pinCY = mapY + mapSize / 2;
                 this.drawPin(pinCX, pinCY, scale, settings.pinStyle, settings.pinColor);
@@ -228,7 +228,7 @@ class WatermarkManager {
         });
     }
 
-    // Gambar pin lokasi — teardrop, ujung bawah = titik koordinat
+    // Gambar pin lokasi - teardrop, ujung bawah = titik koordinat
     drawPin(cx, cy, scale, pinStyle = 'teardrop', pinColor = '#E53935') {
         const r  = Math.round(9 * scale);   // radius lingkaran kepala pin
         
@@ -381,7 +381,7 @@ class WatermarkManager {
         return '⛈️';
     }
 
-    // Format waktu — mendukung manual datetime
+    // Format waktu - mendukung manual datetime
     formatTime(format, manualDatetime = null) {
         const now = manualDatetime instanceof Date && !isNaN(manualDatetime)
             ? manualDatetime

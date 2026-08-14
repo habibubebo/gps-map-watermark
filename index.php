@@ -5,6 +5,8 @@ $db_v  = filemtime(__DIR__ . '/db.js');
 $wx_v  = filemtime(__DIR__ . '/weather.js');
 $wm_v  = filemtime(__DIR__ . '/watermark.js');
 $app_v = filemtime(__DIR__ . '/app.js');
+$sw_v  = filemtime(__DIR__ . '/sw.js');
+$offline_v = filemtime(__DIR__ . '/offline-handler.js');
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -53,6 +55,8 @@ $app_v = filemtime(__DIR__ . '/app.js');
                     ? saved
                     : (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
                 document.documentElement.setAttribute('data-theme', theme);
+                var meta = document.querySelector('meta[name="theme-color"]');
+                if (meta) meta.setAttribute('content', theme === 'dark' ? '#151412' : '#FFF6CE');
             } catch (e) {}
         })();
     </script>
@@ -224,10 +228,10 @@ $app_v = filemtime(__DIR__ . '/app.js');
 
                             <div class="source-toggle">
                                 <select id="timeFormat" class="select-inline">
-                                    <option value="full">Otomatis — Lengkap</option>
-                                    <option value="date">Otomatis — Tanggal saja</option>
-                                    <option value="time">Otomatis — Waktu saja</option>
-                                    <option value="manual">✏️ Isi Manual</option>
+                                    <option value="full">Otomatis - Lengkap</option>
+                                    <option value="date">Otomatis - Tanggal saja</option>
+                                    <option value="time">Otomatis - Waktu saja</option>
+                                    <option value="manual">Isi Manual</option>
                                 </select>
                             </div>
 
@@ -342,6 +346,50 @@ $app_v = filemtime(__DIR__ . '/app.js');
         </div><!-- /.main-content -->
     </div><!-- /.container -->
 
+    <!-- Bottom nav (mobile) -->
+    <nav class="bottom-nav" id="bottomNav" aria-label="Navigasi utama">
+        <div class="bottom-nav-inner">
+            <button class="bottom-nav-item active" data-tab="upload" type="button" aria-label="Buka tab Foto">
+                <i class="fas fa-image" aria-hidden="true"></i><span>Foto</span>
+            </button>
+            <button class="bottom-nav-cam" id="openCameraBtn" type="button" aria-label="Ambil foto dengan kamera">
+                <i class="fas fa-camera" aria-hidden="true"></i>
+            </button>
+            <button class="bottom-nav-item" data-tab="settings" type="button" aria-label="Buka tab Pengaturan">
+                <i class="fas fa-gear" aria-hidden="true"></i><span>Pengaturan</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Camera bottom sheet (mobile): pilih kamera depan / belakang -->
+    <div class="camera-sheet" id="cameraSheet" role="dialog" aria-modal="true" aria-labelledby="cameraSheetTitle" aria-hidden="true">
+        <div class="camera-sheet-backdrop" id="cameraSheetBackdrop" tabindex="-1"></div>
+        <div class="camera-sheet-panel">
+            <div class="camera-sheet-head">
+                <h2 id="cameraSheetTitle">Ambil Foto</h2>
+                <button class="camera-sheet-close" id="cameraSheetClose" type="button" aria-label="Tutup"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="camera-sheet-options">
+                <button class="camera-opt" id="cameraBackBtn" type="button">
+                    <span class="camera-opt-icon" aria-hidden="true"><i class="fas fa-camera"></i></span>
+                    <span class="camera-opt-text">
+                        <strong>Kamera Belakang</strong>
+                        <small>Untuk foto objek di depan Anda</small>
+                    </span>
+                </button>
+                <button class="camera-opt" id="cameraFrontBtn" type="button">
+                    <span class="camera-opt-icon" aria-hidden="true"><i class="fas fa-camera-retro"></i></span>
+                    <span class="camera-opt-text">
+                        <strong>Kamera Depan</strong>
+                        <small>Selfie / kamera depan</small>
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+    <input type="file" id="cameraBackInput" accept="image/*" capture="environment" hidden>
+    <input type="file" id="cameraFrontInput" accept="image/*" capture="user" hidden>
+
     <!-- Modal: Template Baru -->
     <div class="modal" id="newTemplateModal" role="dialog" aria-modal="true" aria-labelledby="newTemplateTitle">
         <div class="modal-content">
@@ -381,7 +429,7 @@ $app_v = filemtime(__DIR__ . '/app.js');
     
     <script src="https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.min.js"></script>
     <script src="db.js?v=<?php echo $db_v; ?>"></script>
-    <script src="offline-handler.js"></script>
+    <script src="offline-handler.js?v=<?php echo $offline_v; ?>"></script>
     <script src="weather.js?v=<?php echo $wx_v; ?>"></script>
     <script src="watermark.js?v=<?php echo $wm_v; ?>"></script>
     <script src="app.js?v=<?php echo $app_v; ?>"></script>
@@ -409,7 +457,8 @@ $app_v = filemtime(__DIR__ . '/app.js');
 
         // Enhanced Service Worker Registration with offline tracking
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js')
+            const hadController = !!navigator.serviceWorker.controller;
+            navigator.serviceWorker.register('sw.js?v=<?php echo $sw_v; ?>')
                 .then((registration) => {
                     console.log('Service Worker registered:', registration);
                     
@@ -418,9 +467,14 @@ $app_v = filemtime(__DIR__ . '/app.js');
                         registration.update();
                     }, 30 * 60 * 1000);
                     
-                    // Listen for controller changes
+                    // Listen for controller changes - SW baru aktif → reload sekali
+                    // agar halaman langsung memakai versi terbaru.
+                    // Skip saat install pertama (belum ada controller sebelumnya).
                     navigator.serviceWorker.addEventListener('controllerchange', () => {
-                        console.log('New Service Worker activated');
+                        if (!hadController) return;
+                        if (window.__swUpdated) return;
+                        window.__swUpdated = true;
+                        setTimeout(() => location.reload(), 300);
                     });
                     
                     // Check for new version and prompt user
@@ -482,7 +536,7 @@ $app_v = filemtime(__DIR__ . '/app.js');
             }
         });
         
-        // Handle page load errors gracefully — show cached version
+        // Handle page load errors gracefully - show cached version
         window.addEventListener('error', (event) => {
             // Suppress error notifications, let offline handler manage it
             if (event.message && event.message.includes('Failed to fetch')) {
@@ -527,7 +581,7 @@ $app_v = filemtime(__DIR__ . '/app.js');
         const apply = (theme) => {
             root.setAttribute('data-theme', theme);
             try { localStorage.setItem('gpswm-theme', theme); } catch (e) {}
-            if (meta) meta.setAttribute('content', theme === 'dark' ? '#151412' : '#FFC107');
+            if (meta) meta.setAttribute('content', theme === 'dark' ? '#151412' : '#FFF6CE');
         };
 
         btn.addEventListener('click', () => {
