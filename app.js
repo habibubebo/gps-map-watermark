@@ -4,6 +4,7 @@ class WatermarkApp {
         this.currentTemplate = null;
         this.currentImage    = null;
         this.weatherObj      = null;  // objek cuaca (auto atau manual)
+        this.photoDatetime   = null;  // waktu terkunci saat foto dipilih (mode auto)
         this.address         = '';    // alamat (auto atau manual)
         this.addressData     = null;  // detail alamat dengan Plus Code
         this.manualAddr      = false; // mode alamat manual aktif
@@ -22,7 +23,11 @@ class WatermarkApp {
         this.setupEventListeners();
         await this.loadTemplates();
         const templates = await db.getAllTemplates();
-        if (templates.length > 0) await this.selectTemplate(templates[0].id, null);
+        if (templates.length > 0) {
+            const lastId = localStorage.getItem('gpswm_active_template');
+            const found = lastId && templates.some(t => t.id === Number(lastId));
+            await this.selectTemplate(found ? Number(lastId) : templates[0].id, null);
+        }
         
         this.syncToServer();
     }
@@ -84,6 +89,7 @@ class WatermarkApp {
         document.getElementById('downloadBtn').addEventListener('click', () => this.downloadImage());
         document.getElementById('resetBtn').addEventListener('click', () => this.resetImage());
         document.getElementById('saveTemplateBtn').addEventListener('click', () => this.saveTemplate());
+        document.getElementById('duplicateTemplateBtn').addEventListener('click', () => this.duplicateTemplate());
         document.getElementById('deleteTemplateBtn').addEventListener('click', () => this.deleteTemplate());
         document.getElementById('newTemplateBtn').addEventListener('click', () => this.showNewTemplateModal());
         document.getElementById('confirmNewTemplate').addEventListener('click', () => this.confirmNewTemplate());
@@ -120,6 +126,7 @@ class WatermarkApp {
             });
         });
         document.getElementById('centerMapBtn').addEventListener('click', () => this.centerMapOnPin());
+        document.getElementById('applyCoordsBtn').addEventListener('click', () => this.applyCoordsToMap());
 
         // Waktu
         document.getElementById('timeFormat').addEventListener('change', (e) => {
@@ -171,6 +178,7 @@ class WatermarkApp {
         });
         ['latitude','longitude'].forEach(id => {
             document.getElementById(id).addEventListener('input', () => {
+                this.updateOpenMapLink();
                 this.updatePreview();
                 this.updateAddressFromCoordinates();
             });
@@ -256,9 +264,53 @@ class WatermarkApp {
             document.getElementById('downloadBtn').disabled = false;
             document.getElementById('resetBtn').disabled   = false;
             document.getElementById('wmControls').classList.add('visible');
+
+            // Waktu otomatis aktif: kunci waktu saat foto dipilih
+            // (bukan saat download/preview, agar konsisten).
+            const timeFormat = document.getElementById('timeFormat').value;
+            if (document.getElementById('enableTime').checked && timeFormat !== 'manual') {
+                this.photoDatetime = new Date();
+            }
+
+            // Cuaca ditampilkan & mode auto: refresh dari server saat itu juga.
+            // Jalankan async agar preview foto tetap langsung tampil.
+            if (document.getElementById('enableWeather').checked && !this.manualWeather) {
+                this.refreshWeatherOnImage().then(() => this.updatePreview());
+            }
+
             this.updatePreview();
         } catch (err) {
             alert('Gagal memuat gambar: ' + err.message);
+        }
+    }
+
+    // Cek apakah koordinat valid sudah terisi
+    hasCoordinates() {
+        const lat = document.getElementById('latitude').value.trim();
+        const lng = document.getElementById('longitude').value.trim();
+        return lat !== '' && lng !== '' && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng));
+    }
+
+    // Refresh cuaca dari server saat foto dipilih (silent, fallback ke data lama)
+    async refreshWeatherOnImage() {
+        try {
+            let data = null;
+            if (this.hasCoordinates()) {
+                data = await weather.getWeatherFresh(
+                    parseFloat(document.getElementById('latitude').value),
+                    parseFloat(document.getElementById('longitude').value)
+                );
+            } else {
+                const city = document.getElementById('weatherCity').value.trim();
+                if (city) data = await weather.getWeatherByCityFresh(city);
+            }
+            // Hanya timpa jika data benar-benar baru (offline: biarkan data lama)
+            if (data && !data.offline) {
+                this.weatherObj = data;
+                this.showWeatherBadge(data);
+            }
+        } catch (e) {
+            console.warn('Refresh cuaca saat pilih foto gagal:', e.message);
         }
     }
 
@@ -301,6 +353,7 @@ class WatermarkApp {
             enableTime:     document.getElementById('enableTime').checked,
             timeFormat,
             manualDatetime,
+            photoDatetime:  this.photoDatetime,
             enableWeather:  document.getElementById('enableWeather').checked,
             weatherObj:     this.weatherObj,
             zoom:           parseInt(document.getElementById('wmZoom').value) / 100,
@@ -328,7 +381,10 @@ class WatermarkApp {
                 ts = new Date();
             }
         } else {
-            ts = new Date();
+            // Auto time: pakai waktu terkunci saat foto dipilih (jika ada)
+            ts = (this.photoDatetime instanceof Date && !isNaN(this.photoDatetime))
+                ? this.photoDatetime
+                : new Date();
         }
 
         const d  = String(ts.getDate()).padStart(2, '0');
@@ -338,14 +394,21 @@ class WatermarkApp {
         const M  = String(ts.getMinutes()).padStart(2, '0');
         const S  = String(ts.getSeconds()).padStart(2, '0');
 
-        const filename = `gps-map-${d}${mo}${y}-${H}${M}${S}.jpg`;
+        const filename = `${this.safeTemplateName()}-${d}${mo}${y}-${H}${M}${S}.jpg`;
         const exifDatetime = `${y}:${mo}:${d} ${H}:${M}:${S}`;
         watermark.downloadImage(filename, { ...this.getFormSettings(), exifDatetime });
+    }
+
+    safeTemplateName() {
+        const raw = (document.getElementById('templateName').value || '').trim();
+        const cleaned = raw.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, '_');
+        return cleaned || 'gps-map';
     }
 
     // ── Reset ────────────────────────────────────────────────
     resetImage() {
         this.currentImage = null;
+        this.photoDatetime = null;
         watermark.reset();
         document.getElementById('noImagePlaceholder').style.display = 'block';
         document.getElementById('downloadBtn').disabled = true;
@@ -370,6 +433,7 @@ class WatermarkApp {
                 document.getElementById('latitude').value  = lat;
                 document.getElementById('longitude').value = lng;
                 btn.disabled = false; btn.innerHTML = '<i class="fas fa-location-dot"></i> Ambil Otomatis';
+                this.updateOpenMapLink();
 
                 document.getElementById('addressInfo').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengambil alamat...';
                 try {
@@ -425,6 +489,7 @@ class WatermarkApp {
             if (!document.getElementById('latitude').value) {
                 document.getElementById('latitude').value  = data.latitude.toFixed(4);
                 document.getElementById('longitude').value = data.longitude.toFixed(4);
+                this.updateOpenMapLink();
                 try {
                     const addr = await weather.reverseGeocode(data.latitude, data.longitude);
                     this.address = (addr != null && addr.fullAddress) ? addr.fullAddress : city;
@@ -459,7 +524,9 @@ class WatermarkApp {
         list.innerHTML = '';
         if (templates.length === 0) {
             empty.style.display = 'block';
+            localStorage.removeItem('gpswm_active_template');
             document.getElementById('deleteTemplateBtn').style.display = 'none';
+            document.getElementById('duplicateTemplateBtn').style.display = 'none';
             return;
         }
         empty.style.display = 'none';
@@ -477,11 +544,13 @@ class WatermarkApp {
         const t = await db.getTemplate(id);
         if (!t) return;
         this.currentTemplate = t;
+        localStorage.setItem('gpswm_active_template', id);
 
         document.getElementById('templateName').value      = t.name;
         document.getElementById('enableGPS').checked       = t.enableGPS != null ? t.enableGPS : true;
         document.getElementById('latitude').value          = t.latitude  || '';
         document.getElementById('longitude').value         = t.longitude || '';
+        this.updateOpenMapLink();
         document.getElementById('pinStyle').value          = t.pinStyle  || 'teardrop';
         document.getElementById('pinColor').value          = t.pinColor  || '#E53935';
         document.getElementById('enableTime').checked      = t.enableTime != null ? t.enableTime : true;
@@ -536,6 +605,7 @@ class WatermarkApp {
             if (found) found.classList.add('active');
         }
         document.getElementById('deleteTemplateBtn').style.display = 'inline-block';
+        document.getElementById('duplicateTemplateBtn').style.display = 'inline-block';
         
         // Update map marker jika map sudah diinisialisasi
         if (this.map && t.latitude && t.longitude) {
@@ -599,9 +669,40 @@ class WatermarkApp {
         if (!this.currentTemplate) return;
         if (!confirm('Hapus template ini?')) return;
         await db.deleteTemplate(this.currentTemplate.id);
+        if (localStorage.getItem('gpswm_active_template') == this.currentTemplate.id) {
+            localStorage.removeItem('gpswm_active_template');
+        }
         this.currentTemplate = null;
         document.getElementById('deleteTemplateBtn').style.display = 'none';
+        document.getElementById('duplicateTemplateBtn').style.display = 'none';
         await this.loadTemplates();
+    }
+
+    async duplicateTemplate() {
+        if (!this.currentTemplate) return;
+        const t = this.currentTemplate;
+
+        const templates = await db.getAllTemplates();
+        const existingNames = new Set(templates.map(x => x.name));
+        const base = (t.name || 'Template').trim() || 'Template';
+        let name = `${base} (Salinan)`;
+        let i = 2;
+        while (existingNames.has(name)) {
+            name = `${base} (Salinan ${i})`;
+            i++;
+        }
+
+        const { id, serverId, createdAt, updatedAt, ...data } = t;
+        const copy = { ...data, name };
+        const newId = await db.saveTemplate(copy);
+        this.currentTemplate = { id: newId, ...copy };
+
+        await this.loadTemplates();
+        const el = document.querySelector(`.template-item[data-id="${newId}"]`);
+        if (el) el.classList.add('active');
+
+        document.getElementById('templateName').value = name;
+        offlineHandler.showNotification(`Template "${name}" berhasil diduplikasi`, 'success');
     }
 
     showNewTemplateModal() {
@@ -841,6 +942,7 @@ class WatermarkApp {
         document.getElementById('latitude').value = lat;
         document.getElementById('longitude').value = lng;
 
+        this.updateOpenMapLink();
         this.updateMapMarker(lat, lng);
 
         try {
@@ -904,6 +1006,7 @@ class WatermarkApp {
             document.getElementById('longitude').value = lng;
             
             // Update map
+            this.updateOpenMapLink();
             this.updateMapMarker(lat, lng);
             
             // Ambil alamat lengkap dengan Plus Code
@@ -955,6 +1058,22 @@ class WatermarkApp {
     }
 
     // ── Auto-update alamat dari koordinat ────────────────────
+    updateOpenMapLink() {
+        const lat = document.getElementById('latitude').value.trim();
+        const lng = document.getElementById('longitude').value.trim();
+        const link = document.getElementById('openMapLink');
+        if (!link) return;
+        if (lat && lng) {
+            link.href = `https://maps.google.com/?q=${lat},${lng}`;
+            link.title = `Buka lokasi (${lat}, ${lng}) di Google Maps`;
+            link.classList.remove('disabled');
+        } else {
+            link.href = 'https://maps.google.com/?q=';
+            link.title = 'Masukkan latitude & longitude dulu';
+            link.classList.add('disabled');
+        }
+    }
+
     async updateAddressFromCoordinates() {
         const lat = document.getElementById('latitude').value.trim();
         const lng = document.getElementById('longitude').value.trim();
@@ -1022,8 +1141,20 @@ class WatermarkApp {
         // Default center (Indonesia)
         const defaultLat = -8.0586;
         const defaultLng = 112.0638;
+
+        // Ikuti koordinat template yang sedang aktif (jika ada)
+        const t = this.currentTemplate;
+        let centerLat = defaultLat, centerLng = defaultLng;
+        if (t && t.latitude && t.longitude) {
+            const latNum = parseFloat(t.latitude);
+            const lngNum = parseFloat(t.longitude);
+            if (!isNaN(latNum) && !isNaN(lngNum)) {
+                centerLat = latNum;
+                centerLng = lngNum;
+            }
+        }
         
-        this.map = L.map('mapContainer').setView([defaultLat, defaultLng], 13);
+        this.map = L.map('mapContainer').setView([centerLat, centerLng], 13);
         
         // OpenStreetMap tiles
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -1041,7 +1172,7 @@ class WatermarkApp {
         });
         
         // Add marker
-        this.mapMarker = L.marker([defaultLat, defaultLng], {
+        this.mapMarker = L.marker([centerLat, centerLng], {
             draggable: true,
             icon: customIcon,
             title: 'Klik atau drag untuk memilih lokasi'
@@ -1076,11 +1207,25 @@ class WatermarkApp {
         this.map.setView(pos, 13, { animate: true });
     }
 
+    applyCoordsToMap() {
+        const latNum = parseFloat(document.getElementById('latitude').value.trim());
+        const lngNum = parseFloat(document.getElementById('longitude').value.trim());
+        if (isNaN(latNum) || isNaN(lngNum)) {
+            offlineHandler.showNotification('Masukkan latitude & longitude yang valid dulu', 'warning');
+            return;
+        }
+        if (!this.map) this.initMap();
+        this.mapMarker.setLatLng([latNum, lngNum]);
+        this.map.setView([latNum, lngNum], 13, { animate: true });
+        offlineHandler.showNotification(`Titik diperbarui: ${latNum.toFixed(4)}, ${lngNum.toFixed(4)}`, 'success');
+    }
+
     setCoordinates(lat, lng) {
         const latStr = parseFloat(lat).toFixed(4);
         const lngStr = parseFloat(lng).toFixed(4);
         document.getElementById('latitude').value = latStr;
         document.getElementById('longitude').value = lngStr;
+        this.updateOpenMapLink();
         this.updateAddressFromCoordinates();
         this.updatePreview();
     }

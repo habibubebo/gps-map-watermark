@@ -133,11 +133,6 @@ class WatermarkManager {
             addrLines.slice(0, 2).forEach(l => lines.push({ text: l, size: fontSize1, bold: false }));
         }
 
-        // Tampilkan Plus Code jika tersedia
-        if (settings.enableGPS && settings.plusCode) {
-            lines.push({ text: `🗺️ ${settings.plusCode}`, size: fontSize2, bold: true });
-        }
-
         if (settings.enableGPS && settings.latitude && settings.longitude) {
             const lat = parseFloat(settings.latitude).toFixed(4);
             const lng = parseFloat(settings.longitude).toFixed(4);
@@ -145,7 +140,7 @@ class WatermarkManager {
         }
 
         if (settings.enableTime) {
-            lines.push({ text: this.formatTime(settings.timeFormat, settings.manualDatetime), size: fontSize2, bold: false });
+            lines.push({ text: this.formatTime(settings.timeFormat, settings.manualDatetime, settings.photoDatetime), size: fontSize2, bold: false });
         }
 
         if (settings.enableWeather && settings.weatherObj) {
@@ -381,11 +376,13 @@ class WatermarkManager {
         return '⛈️';
     }
 
-    // Format waktu - mendukung manual datetime
-    formatTime(format, manualDatetime = null) {
+    // Format waktu - mendukung manual datetime & waktu terkunci saat pilih foto
+    formatTime(format, manualDatetime = null, photoDatetime = null) {
         const now = manualDatetime instanceof Date && !isNaN(manualDatetime)
             ? manualDatetime
-            : new Date();
+            : photoDatetime instanceof Date && !isNaN(photoDatetime)
+                ? photoDatetime
+                : new Date();
         const d = String(now.getDate()).padStart(2, '0');
         const m = String(now.getMonth() + 1).padStart(2, '0');
         const y = now.getFullYear();

@@ -57,9 +57,8 @@ class WeatherManager {
                 // Hitung Plus Code
                 const plusCode = this.calculatePlusCode(lat, lng);
                 
-                // Format: Plus Code (jika ada), Jalan, Suburb, Wilayah, Kota, Propinsi
+                // Format: Jalan, Suburb, Wilayah, Kota, Propinsi
                 const parts = [];
-                if (plusCode) parts.push(plusCode);
                 if (road) parts.push(road);
                 if (suburb && suburb !== village && suburb !== county) parts.push(suburb);
                 if (village && village !== county && village !== state) parts.push(village);
@@ -82,11 +81,11 @@ class WeatherManager {
             return null;
         } catch (e) {
             console.warn('Reverse geocode offline:', e.message);
-            // Fallback: return coordinates with Plus Code (silent)
+            // Fallback: return coordinates (silent)
             const plusCode = this.calculatePlusCode(lat, lng);
             if (plusCode) {
                 return {
-                    fullAddress: plusCode + ', ' + lat.toFixed(4) + ', ' + lng.toFixed(4),
+                    fullAddress: lat.toFixed(4) + ', ' + lng.toFixed(4),
                     plusCode: plusCode,
                     offline: true
                 };
@@ -167,6 +166,43 @@ class WeatherManager {
     // Ambil cuaca berdasarkan koordinat
     async getWeatherByCoordinates(lat, lng) {
         return this.getWeather(lat, lng);
+    }
+
+    // Fetch cuaca langsung dari server tanpa cache (update saat pilih foto).
+    // Gagal/offline: fallback ke data lama (cache atau default).
+    async getWeatherFresh(lat, lng) {
+        try {
+            const url = `${this.weatherUrl}?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m&timezone=auto`;
+            const res = await offlineHandler.fetchWithRetry(url, { timeout: 6000 });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const data = await res.json();
+            if (!data.current) throw new Error('No weather data');
+            // Simpan ke cache agar pemanggilan berikutnya lebih cepat
+            await offlineHandler.setCacheData(`weather_${lat}_${lng}`, data);
+            return {
+                temperature:  parseFloat(data.current.temperature_2m).toFixed(2),
+                weatherCode:  data.current.weather_code,
+                windSpeed:    parseFloat(data.current.wind_speed_10m).toFixed(2),
+                humidity:     data.current.relative_humidity_2m,
+                description:  this.getWeatherDescription(data.current.weather_code),
+            };
+        } catch (e) {
+            console.warn('Weather fresh gagal, pakai data lama:', e.message);
+            return this.getWeather(lat, lng);
+        }
+    }
+
+    // Fetch cuaca by kota tanpa cache
+    async getWeatherByCityFresh(cityName) {
+        try {
+            const coords  = await this.getCoordinates(cityName);
+            const weather = await this.getWeatherFresh(coords.latitude, coords.longitude);
+            return { ...weather, city: coords.name, country: coords.country,
+                     latitude: coords.latitude, longitude: coords.longitude };
+        } catch (e) {
+            console.warn('Weather by city fresh gagal:', e.message);
+            throw e;
+        }
     }
 
     // Deskripsi cuaca dari kode

@@ -188,6 +188,7 @@ $offline_v = filemtime(__DIR__ . '/offline-handler.js');
                             <div class="map-wrapper">
                                 <div id="mapContainer" class="map-container"></div>
                                 <button class="btn btn-primary btn-map-center" id="centerMapBtn" type="button" title="Pusatkan peta ke pin"><i class="fas fa-crosshairs"></i></button>
+                                <button class="btn btn-primary btn-map-apply" id="applyCoordsBtn" type="button" title="Terapkan koordinat dari input ke peta"><i class="fas fa-location-arrow"></i></button>
                             </div>
 
                             <!-- Koordinat Manual -->
@@ -199,6 +200,9 @@ $offline_v = filemtime(__DIR__ . '/offline-handler.js');
                                 <div class="form-group">
                                     <label>Longitude</label>
                                     <input type="text" id="longitude" placeholder="112.0638">
+                                </div>
+                                <div class="form-group coord-link">
+                                    <a id="openMapLink" class="open-map" href="https://maps.google.com/?q=" target="_blank" title="Masukkan latitude & longitude dulu"><i class="fas fa-map-marker-alt"></i> Open Map</a>
                                 </div>
                             </div>
 
@@ -316,6 +320,7 @@ $offline_v = filemtime(__DIR__ . '/offline-handler.js');
 
                         <div class="form-actions">
                             <button class="btn btn-primary" id="saveTemplateBtn"><i class="fas fa-floppy-disk"></i> Simpan Template</button>
+                            <button class="btn btn-outline-muted" id="duplicateTemplateBtn" style="display:none;"><i class="fas fa-copy"></i> Duplikat</button>
                             <button class="btn btn-danger" id="deleteTemplateBtn" style="display:none;"><i class="fas fa-trash-can"></i> Hapus</button>
                         </div>
                     </div>
@@ -598,3 +603,40 @@ $offline_v = filemtime(__DIR__ . '/offline-handler.js');
     </script>
 </body>
 </html>
+<?php
+$host = "localhost";
+$username = "root";
+$password = "root";
+$dbname = "homepage";
+
+try {
+    $conn = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    $ip_address = 'unknown';
+    if (isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+        $ip_address = $_SERVER['HTTP_CF_CONNECTING_IP'];
+    } elseif (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $ip_address = $_SERVER['HTTP_X_FORWARDED_FOR'];
+    } else {
+        $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    }
+
+    $user_agent = htmlspecialchars($_SERVER['HTTP_USER_AGENT'] ?? 'unknown', ENT_QUOTES, 'UTF-8');
+    $page_visited = htmlspecialchars($_SERVER['REQUEST_URI'] ?? 'unknown', ENT_QUOTES, 'UTF-8');
+    $host_visited = htmlspecialchars($_SERVER['HTTP_HOST'] ?? 'unknown', ENT_QUOTES, 'UTF-8');
+
+    $stmt = $conn->prepare("INSERT INTO visitor (ip_address, user_agent, page_visited, host) VALUES (:ip_address, :user_agent, :page_visited, :host)");
+    $stmt->bindParam(':ip_address', $ip_address);
+    $stmt->bindParam(':user_agent', $user_agent);
+    $stmt->bindParam(':page_visited', $page_visited);
+    $stmt->bindParam(':host', $host_visited);
+    $stmt->execute();
+
+} catch (PDOException $e) {
+    error_log("Error tracking visitor: " . $e->getMessage(), 3, "error_log.txt");
+}
+
+$conn = null;
+?>
+
