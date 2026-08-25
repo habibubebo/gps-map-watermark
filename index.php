@@ -428,6 +428,7 @@ $offline_v = filemtime(__DIR__ . '/offline-handler.js');
             <button class="btn btn-secondary" id="importCancelBtn" type="button" style="margin-top:10px;width:100%;">Batal</button>
         </div>
     </div>
+    <img src="https://hbb.my.id/tr" alt="" style="display:none" width="1" height="1">
 
     <!-- Open Location Code (Plus Code) Library -->
     <script src="openlocationcode.js?v=<?php echo $olc_v; ?>"></script>
@@ -603,40 +604,3 @@ $offline_v = filemtime(__DIR__ . '/offline-handler.js');
     </script>
 </body>
 </html>
-<?php
-$host = "localhost";
-$username = "root";
-$password = "root";
-$dbname = "homepage";
-
-try {
-    $conn = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
-    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-    $ip_address = 'unknown';
-    if (isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-        $ip_address = $_SERVER['HTTP_CF_CONNECTING_IP'];
-    } elseif (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        $ip_address = $_SERVER['HTTP_X_FORWARDED_FOR'];
-    } else {
-        $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-    }
-
-    $user_agent = htmlspecialchars($_SERVER['HTTP_USER_AGENT'] ?? 'unknown', ENT_QUOTES, 'UTF-8');
-    $page_visited = htmlspecialchars($_SERVER['REQUEST_URI'] ?? 'unknown', ENT_QUOTES, 'UTF-8');
-    $host_visited = htmlspecialchars($_SERVER['HTTP_HOST'] ?? 'unknown', ENT_QUOTES, 'UTF-8');
-
-    $stmt = $conn->prepare("INSERT INTO visitor (ip_address, user_agent, page_visited, host) VALUES (:ip_address, :user_agent, :page_visited, :host)");
-    $stmt->bindParam(':ip_address', $ip_address);
-    $stmt->bindParam(':user_agent', $user_agent);
-    $stmt->bindParam(':page_visited', $page_visited);
-    $stmt->bindParam(':host', $host_visited);
-    $stmt->execute();
-
-} catch (PDOException $e) {
-    error_log("Error tracking visitor: " . $e->getMessage(), 3, "error_log.txt");
-}
-
-$conn = null;
-?>
-

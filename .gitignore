@@ -4,3 +4,4 @@ server-data/
 /guide/
 .DS_Store
 *.md
+cpages/
